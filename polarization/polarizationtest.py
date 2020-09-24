@@ -27,7 +27,7 @@ dl = 0.1
 c1 = n1*np.sin(theta0)
 c2 = n2*np.sin(theta0)
 
-ent = int(1e5)
+ent = int(2e3)
 
 z1 = np.zeros(ent)
 r1 = np.zeros(ent)
@@ -44,25 +44,49 @@ r2[1] = r2[0] + dl*np.sin(theta0)
 theta1 = theta0
 theta2 = theta0
 
+up1 = True
+up2 = True
+
+#compute wave 1
 for i in range(1, ent-1):
     n1s = np.sqrt(np.diag(eps(z1[i])))
-    n2s = np.sqrt(np.diag(eps(z2[i])))
     n1 = n1s[1]
-    n2 = n2s[0]*n2s[2]/np.sqrt(n2s[0]**2*np.sin(theta2)**2 +n2s[2]**2*np.cos(theta2)**2)
-
-    theta1 = np.arcsin(c1/n1)
-    theta2 = np.arcsin(c2/n2)
-    print(theta2)
-    if np.isnan(c2/n2):
-        input()
+    
+    if c1/n1>1 and up1:
+        theta1 = 2*np.pi-theta2
+        up1 = False
+    elif not up1:
+        theta1 = 2*np.pi-np.arcsin(c1/n1)
+    else:
+        theta1 = np.arcsin(c1/n1)
 
     z1[i+1] = z1[i] + dl*np.cos(theta1)
-    z2[i+1] = z2[i] + dl*np.cos(theta2)
-    
     r1[i+1] = r1[i] + dl*np.sin(theta1)
-    r2[i+1] = r2[i] + dl*np.sin(theta2)
 
+#compute wave 2
+for i in range(1, ent-1):
+    n2s = np.sqrt(np.diag(eps(z2[i])))
+    n2tmp = n2
+    n2 = n2s[0]*n2s[2]/np.sqrt(n2s[0]**2*np.sin(theta2)**2 +n2s[2]**2*np.cos(theta2)**2)
+
+    if c2/n2>1 and up2:
+        theta2 = 2*np.pi-theta2
+        up2 = False
+        z2[i+1] = z2[i] - dl*np.cos(theta2)
+        r2[i+1] = r2[i] - dl*np.sin(theta2)
+    elif not up2:
+        theta2 = 2*np.pi-np.arcsin(c2/n2)
+        z2[i+1] = z2[i] - dl*np.cos(theta2)
+        r2[i+1] = r2[i] - dl*np.sin(theta2)
+    else:
+        theta2 = np.arcsin(c2/n2)
+        z2[i+1] = z2[i] + dl*np.cos(theta2)
+        r2[i+1] = r2[i] + dl*np.sin(theta2)
+    if c2/n2>1:
+        print(c2, n2, z2[i], z2[i-1])
+    
+
+#plt.plot(r1, z1)
 plt.plot(r2, z2)
-plt.plot(r1, z2)
 plt.show()
 
