@@ -1,5 +1,5 @@
 import numpy as np
-import scipy.linalg as spl
+from scipy.integrate import solve_ivp
 import polarizationfns as pl
 import matplotlib.pyplot as plt
 
@@ -7,30 +7,27 @@ theta0 = np.pi/4
 z0 = 0
 
 s = np.array([np.sin(theta0), 0, np.cos(theta0)])
-s = s/spl.norm(s)
+s = s/np.linalg.norm(s)
 
 L = 100
 
-def n(z):
+def nz(z):
     return 2-z/L
 
 def eps(z):
-    return np.diag([1.5**2, 1.6**2, (n(z))**2])
+    return np.diag([1.5**2, 1.6**2, (nz(z))**2])
 
 n1, n2 = pl.get_n(s, np.diag(np.sqrt(eps(z0))))
 p1, p2 = pl.get_null(s,eps(z0))
 
-p1 = p1.T[0]
-p2 = p2.T[0]
+print(p1)
+print(p2)
 
-print(p1, np.linalg.norm(p1))
-print(p2, np.linalg.norm(p2))
-
-dl = 0.1
+dl = 0.001
 c1 = n1*np.sin(theta0)
 c2 = n2*np.sin(theta0)
 
-ent = int(2e3)
+ent = int(2e2*1/dl)
 
 z1 = np.zeros(ent)
 r1 = np.zeros(ent)
@@ -77,27 +74,42 @@ for i in range(1, ent-1):
         up2 = False
         z2[i+1] = z2[i] - dl*np.cos(theta2)
         r2[i+1] = r2[i] - dl*np.sin(theta2)
-        p2 = -np.array([p2[0], p2[1], eps(z2[i])[2,2]*p2[2]/eps(z2[i-1])[2,2]])
     elif not up2:
         theta2 = 2*np.pi-np.arcsin(c2/n2)
         z2[i+1] = z2[i] - dl*np.cos(theta2)
         r2[i+1] = r2[i] - dl*np.sin(theta2)
-        p2 = np.array([p2[0], p2[1], eps(z2[i])[2,2]*p2[2]/eps(z2[i-1])[2,2]])
     else:
         theta2 = np.arcsin(c2/n2)
         z2[i+1] = z2[i] + dl*np.cos(theta2)
         r2[i+1] = r2[i] + dl*np.sin(theta2)
-        p2 = np.array([p2[0], p2[1], eps(z2[i])[2,2]*p2[2]/eps(z2[i-1])[2,2]])
     
-    s = np.array([np.sin(theta2), 0, np.cos(theta2)])
-    s = s/spl.norm(s)
+ny = np.sqrt(eps(0)[0,0])
 
-print(p2, np.linalg.norm(p2))
-print(z2[-1])
-p1, p2 = pl.get_null(s,eps(z2[-1]))
-print(p1.T[0],p2.T[0])
+def nzp(z):
+    return -1/L
+
+def n(theta, z):
+    return ny*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+ny**2*np.sin(theta)**2)
+
+def dndtheta(theta, z):
+    return ny*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-ny**2)/(nz(z)**2*np.cos(theta)**2+ny**2*np.sin(theta)**2)**1.5
+
+def dndz(theta, z):
+    return ny**3*np.sin(theta)**2*nzp(z)/(nz(z)**2*np.cos(theta)**2+ny**2*np.sin(theta)**2)**1.5
+
+def odes(t, y):
+    # form is [d(theta)/dr, dzdr]
+    return [-np.cos(y[0])*dndz(y[0], y[1])/(n(y[0],y[1])*np.cos(y[0])+dndtheta(y[0],y[1])*np.sin(y[0])), 1/np.tan(y[0])]
+
+sol=solve_ivp(odes, [0, r2[-1]], [np.pi/4, 0], method='DOP853', max_step=dl, dense_output=True)
+
+plt.plot(sol.t, sol.y[1], '--')
+plt.xlabel('r')
+plt.ylabel('z')
 
 #plt.plot(r1, z1)
-#plt.plot(r2, z2)
-plt.show()
+plt.plot(r2, z2)
+#plt.show()
+
+print(np.max(np.abs(sol.sol(r2)[1] - z2)))
 
