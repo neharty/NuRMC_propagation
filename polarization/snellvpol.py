@@ -2,6 +2,21 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import polarizationfns as pl
 import matplotlib.pyplot as plt
+import argparse
+
+parser = argparse.ArgumentParser(description='compare snells law ODE with just the regular one')
+parser.add_argument('dl', type=float,
+                   help='determines fixed track length differential size')
+parser.add_argument('theta0', type=float,
+                   help='determines initial zenith angle of ray')
+parser.add_argument('z0', type=float,
+                   help='determines starting depth of ray')
+
+args = parser.parse_args()
+
+dl = args.dl
+theta0 = args.theta0
+z0 = args.z0
 
 theta0 = np.pi/4
 z0 = 0
@@ -23,7 +38,6 @@ p1, p2 = pl.get_null(s,eps(z0))
 print(p1)
 print(p2)
 
-dl = 0.001
 c1 = n1*np.sin(theta0)
 c2 = n2*np.sin(theta0)
 
@@ -101,15 +115,19 @@ def odes(t, y):
     # form is [d(theta)/dr, dzdr]
     return [-np.cos(y[0])*dndz(y[0], y[1])/(n(y[0],y[1])*np.cos(y[0])+dndtheta(y[0],y[1])*np.sin(y[0])), 1/np.tan(y[0])]
 
-sol=solve_ivp(odes, [0, r2[-1]], [np.pi/4, 0], method='DOP853', max_step=dl, dense_output=True)
+sol=solve_ivp(odes, [0, r2[-1]], [np.pi/4, 0], method='RK45', max_step=dl, dense_output=True)
 
-plt.plot(sol.t, sol.y[1], '--')
+plt.plot(sol.t, sol.y[1], label='snells ode')
 plt.xlabel('r')
 plt.ylabel('z')
 
 #plt.plot(r1, z1)
-plt.plot(r2, z2)
-#plt.show()
+plt.plot(r2, z2, '--', label='snells discrete')
+plt.legend()
+plt.savefig('snellvprop'+str(int(np.log10(dl)))+'.pdf')
 
-print(np.max(np.abs(sol.sol(r2)[1] - z2)))
+fl = open('maxerr.txt', 'a')
+fl.write(str(dl)+','+str(np.max(np.abs(sol.sol(r2)[1] - z2))))
+fl.write('\n')
+fl.close()
 
