@@ -39,6 +39,16 @@ def get_null(s, eps, rcond=1e-8):
         [eps[2,0] + n2**2*s3*s1, eps[2,1] + n2**2*s3*s2, eps[2,2] - n2**2*(s1**2+s2**2)]])
     return spl.null_space(L1, rcond=rcond), spl.null_space(L2, rcond=rcond)
 
+def get_E(s, n, eps, rcond=1e-8):
+    s1, s2, s3 = s
+    
+    n1 = n
+    L1 = np.array([[eps[0,0] - n1**2*(s2**2+s3**2), eps[0,1] + n1**2*s1*s2, eps[0,2] + n1**2*s1*s3],
+        [eps[1,0] + n1**2*s2*s1, eps[1,1] - n1**2*(s1**2+s3**2), eps[1,2] + n1**2*s2*s3],
+        [eps[2,0] + n1**2*s3*s1, eps[2,1] + n1**2*s3*s2, eps[2,2] - n1**2*(s1**2+s2**2)]])
+    
+    return spl.null_space(L1, rcond=rcond)
+
 def get_basis(eps):
     '''
         computes rotation matrix as 

@@ -20,7 +20,7 @@ def check(s, n, narr):
 def get_dir(theta, phi):
     return np.array([np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)])
 
-theta = np.random.random()*np.pi - np.pi/2
+theta = np.pi/2*np.random.random()
 phi = np.random.random()*np.pi*2
 
 ninit = 1
