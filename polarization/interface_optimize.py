@@ -20,7 +20,7 @@ def check(s, n, narr):
 def get_dir(theta, phi):
     return np.array([np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)])
 
-theta = np.pi/2*np.random.random()
+theta = np.pi/3
 phi = np.random.random()*np.pi*2
 
 ninit = 1
@@ -94,5 +94,9 @@ ax.quiver(0,0, ksol2plane[0], ksol2plane[1], angles='xy', scale_units='xy', scal
 ax.axvline(ninit*np.sin(theta), linestyle='dashed', color='r')
 ax.plot(r1, z1)
 ax.plot(r2, z2)
+ax.set_xlabel('r')
+ax.set_ylabel('z')
 ax.set_ylim([-0.1, max(max(z1), max(z2))+0.1])
+plt.title(r'$\phi_i$ = '+str(phi)+' '+r'$\theta_i = $' + str(theta))
+plt.savefig('optimization.pdf')
 plt.show()
