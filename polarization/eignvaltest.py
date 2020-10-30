@@ -1,8 +1,9 @@
 import numpy as np
 import numpy.linalg as la
+import polarizationfns as p
 
 theta = np.pi/4
-phi = 0
+phi = np.random.random()*2*np.pi
 
 s = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
 
@@ -25,8 +26,7 @@ def get_ns(s, eps):
 
     vals, vects = la.eig(inv.dot(sm))
     vals = vals[np.abs(vals) > 1e-16]
-    print(np.sqrt(1/-vals))
 
-
-get_ns(s,eps)
-
+v1, v2 = p.get_null(s,eps)
+print(v1)
+print(v2)

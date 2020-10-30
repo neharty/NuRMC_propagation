@@ -87,10 +87,20 @@ ksol1plane = sol1.x[1]*np.array([np.sin(sol1.x[0]), np.cos(sol1.x[0])])
 
 ksol2 = sol2.x[1]*get_dir(sol2.x[0], phi)
 ksol2plane = sol2.x[1]*np.array([np.sin(sol2.x[0]), np.cos(sol2.x[0])])
-
+'''
 print(np.arcsin(np.sin(theta)*ninit/nd[0]))
 print(np.arcsin(np.sin(theta)*ninit/n1))
 print(np.arcsin(np.sin(theta)*ninit/n2))
+'''
+
+n1 = nd[0] 
+theta1 = np.arcsin(np.sin(theta)*ninit/nd[0])
+ksol1 = nd[0]*np.array([np.sin(theta1), np.cos(theta1)])
+
+atemp = ninit*(np.sin(theta))**2
+theta2 = np.arctan(np.sqrt(ninit*atemp/(nd[0]*nd[2] - nd[0]*atemp)))
+n2 = nd[0]*nd[2]/np.sqrt(nd[0]*np.sin(theta2)**2 + nd[2]*np.cos(theta2)**2)
+ksol2 = n2*np.array([np.sin(theta2), np.cos(theta2)])
 
 ax.quiver(0,0, kplane[0], kplane[1], angles='xy', scale_units='xy', scale=1)
 ax.quiver(0,0, ksol1plane[0], ksol1plane[1], angles='xy', scale_units='xy', scale=1, color='b')
@@ -102,5 +112,5 @@ ax.set_xlabel('r')
 ax.set_ylabel('z')
 ax.set_ylim([-0.1, max(max(z1), max(z2))+0.1])
 plt.title(r'$\phi_i$ = '+str(phi)+' '+r'$\theta_i = $' + str(theta))
-#plt.savefig('interface_optimization.pdf')
+plt.savefig('interface_optimization.pdf')
 plt.show()
