@@ -52,7 +52,6 @@ def odes(t, y):
 def fn(theta, r, zm, dl):
     sol = solve_ivp(odes, [0, r], [theta, 0], method='RK45', max_step = dl)
     zsol = sol.y[1,-1]
-    del sol
     return np.abs(zsol - zm)
 
 minsol = minimize(fn, (np.pi/6), args=(100, 20, 0.1))
