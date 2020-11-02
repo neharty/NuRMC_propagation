@@ -177,7 +177,7 @@ def sfn(theta, rmax, z0, zm, dr):
     return np.abs(zsol - zm)
 
 rmax = 1000
-#z0 = -200
+z0 = -300
 zm = -200
 dr = 10
 dz = 10
@@ -188,7 +188,26 @@ def initialangle(zd, z0):
     if zd-z0 >= 0:
         return np.pi/2 - np.arctan((zm-z0)/rmax)
 
-zarr = np.linspace(-1, -2000, num=20)
+#example for plotting
+pminsol = minimize(pfn, (initialangle(zm, z0)), args=(rmax, z0, zm, dr), tol = 1e-5)
+podesol = solve_ivp(podes, [0, rmax], [pminsol.x[0], z0], method='DOP853', max_step = dr)
+
+sminsol = minimize(sfn, (initialangle(zm,z0)), args=(rmax, z0, zm, dr), tol=1e-5)
+sodesol = solve_ivp(sodes, [0, rmax], [sminsol.x[0], z0], method='DOP853', max_step = dr)
+
+plt.plot(podesol.t, podesol.y[1], color='blue', label = 'p-wave')
+plt.plot(sodesol.t, sodesol.y[1], '--', color='orange', label = 's-wave')
+plt.plot(rmax, zm, 'D', label = 'antenna')
+plt.plot(0, z0, '*', label = 'source')
+plt.xlabel('r')
+plt.ylabel('z')
+plt.legend()
+plt.savefig('snells_uniaxial_example.png', dpi=600)
+plt.clf()
+
+#sweeping data
+zarr = np.linspace(0, -2000, num=21)
+tmptab = np.zeros((21, 6))
 for j in range(len(zarr)):
     z0 = zarr[j]
     pminsol = minimize(pfn, (initialangle(zm, z0)), args=(rmax, z0, zm, dr), tol = 1e-5)
@@ -201,23 +220,26 @@ for j in range(len(zarr)):
     sodesol = solve_ivp(sodes, [0, rmax], [sminsol.x[0], z0], method='DOP853', max_step = dr)
     ts = (10/3)*np.trapz([npp(sodesol.y[0,i], sodesol.y[1,i])*np.abs(1/np.sin(sodesol.y[0,i])) for i in range(len(sodesol.t))],  sodesol.t)
 
-    print('p-s dt [ns]:', tp-ts)
-    print('launch angles: ',pminsol.x[0], sminsol.x[0])
-    print('final depth: ', podesol.y[1,-1], sodesol.y[1,-1])
-    plt.plot(podesol.t, podesol.y[1], label='p-pol', color='blue')
-    plt.plot(sodesol.t, sodesol.y[1], label='s-pol', color='orange')
+    tmptab[j,0], tmptab[j,2], tmptab[j, 4] = pminsol.x[0], sminsol.x[0], pminsol.x[0]-sminsol.x[0]
+    tmptab[j,1], tmptab[j,3], tmptab[j, 5] = tp, ts, tp-ts
+    if np.abs(podesol.y[1,-1] - zm) <= 1e-4 or np.abs(sodesol.y[1,-1] - zm)<= 1e-4:
+        plt.plot(podesol.t, podesol.y[1], color='blue')
+        plt.plot(sodesol.t, sodesol.y[1], '--', color='orange')
 
-plt.plot(0, z0, '*', label = 'source')
-plt.plot(rmax, zm, '^', label = 'antenna')
+plt.title('blue = p-wave, orange = s-wave')
+plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
 
-#plt.savefig('snellvprop'+str(int(np.log10(dl)))+'.pdf')
+tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p launch', 't_p [ns]', 's launch', 't_s [ns]', 'p-s delta launch', 'p-s delta t [ns]'])
+tab.to_csv('snells_uniaxial_data.csv')
+
+plt.savefig('snell_uniaxial_sweep.png', dpi=600)
 '''
 fl = open('maxerr.txt', 'a')
 fl.write(str(dl)+','+str(np.max(np.abs(sol.sol(r2)[1] - z2))))
 fl.write('\n')
 fl.close()
 '''
-plt.show()
+#plt.show()
