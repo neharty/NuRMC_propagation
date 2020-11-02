@@ -6,6 +6,7 @@ import argparse
 from scipy.optimize import minimize
 import pandas as pd
 from scipy.optimize import curve_fit
+from tabulate import tabulate
 
 '''
 parser = argparse.ArgumentParser(description='compare snells law ODE with just the regular one')
@@ -43,6 +44,24 @@ def nfit(z, a, b, c):
 
 nxyparams, junk = curve_fit(nfit, zdepth, nxy)
 nzparams, junk = curve_fit(nfit, zdepth, nz)
+'''
+plt.plot(zdepth, nxy, '.', label=r'$n_{o}$')
+plt.plot(zdepth, nz, '.', label=r'$n_{e}$')
+plt.plot(zdepth, nfit(zdepth, *nxyparams), label = r'$n_{o}$ fit')
+plt.plot(zdepth, nfit(zdepth, *nzparams), label = r'$n_{e}$ fit')
+plt.xlim([zdepth[0], zdepth[-1]])
+plt.legend()
+plt.xlabel('nominal depth [m]')
+plt.ylabel('index of refraction')
+plt.savefig('icemodel.png')
+plt.clf()
+'''
+
+zs = np.linspace(0, -2700, num=2701)
+plt.plot(zs, nfit(zs, *nxyparams), label='n_o')
+plt.plot(zs, nfit(zs, *nzparams), label='n_e')
+plt.show()
+plt.clf()
 
 def nz(z):
     # z index of refraction function
@@ -76,6 +95,10 @@ def ns(z):
     #s-polarization index of refraction
     return no(z)
 
+def dnsdz(z):
+    #derivative of s-polarization index of refraction
+    return dnodz(z)
+
 def npp(theta, z):
     #p-polarizatoin index of refraction
     return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
@@ -96,23 +119,37 @@ def podes(t, y):
 def sodes(t,y):
     # odes for s-polarization
     # form is [d(theta)/dr, dzdr]
-    return [-dnsdz(y[0], y[1])/(ns(y[1])), 1/np.tan(y[0])]
+    return [-dnsdz(y[1])/(ns(y[1])), 1/np.tan(y[0])]
 
 def pfn(theta, rmax, z0, zm, dl):
     sol = solve_ivp(podes, [0, rmax], [theta, z0], method='RK45', max_step = dl)
     zsol = sol.y[1,-1]
     return np.abs(zsol - zm)
 
+def sfn(theta, rmax, z0, zm, dl):
+    sol = solve_ivp(sodes, [0, rmax], [theta, z0], method='RK45', max_step = dl)
+    zsol = sol.y[1,-1]
+    return np.abs(zsol - zm)
+
 rmax = 1000
-z0 = -200
+z0 = -25
 zm = -20
 dl = 10
 
-minsol = minimize(pfn, (np.pi - np.arctan((zm-z0)/rmax)), args=(rmax, z0, zm, dl))
-podesol = solve_ivp(podes, [0, rmax], [minsol.x[0], z0], method='RK45', max_step = dl)
+pminsol = minimize(pfn, (np.pi - np.arctan((zm-z0)/rmax)), args=(rmax, z0, zm, dl))
+podesol = solve_ivp(podes, [0, rmax], [pminsol.x[0], z0], method='RK45', max_step = dl)
 
-plt.plot(podesol.t, podesol.y[1], label='snells ode')
-plt.plot(rmax, zm, '*', label = 'antenna')
+sminsol = minimize(sfn, (np.pi - np.arctan((zm-z0)/rmax)), args=(rmax, z0, zm, dl))
+sodesol = solve_ivp(sodes, [0, rmax], [sminsol.x[0], z0], method='RK45', max_step = dl)
+
+#tab = pd.DataFrame(np.array([pminsol.x[0], sminsol.x[0]]), index_col=['p-pol', 's-pol'])
+print('launch angles: ',pminsol.x[0], sminsol.x[0])
+print('final depth: ', podesol.y[1,-1], sodesol.y[1,-1])
+print(no(-2700))
+plt.plot(podesol.t, podesol.y[1], label='p-pol')
+plt.plot(sodesol.t, sodesol.y[1], label='s-pol')
+plt.plot(0, z0, '*', label = 'source')
+plt.plot(rmax, zm, '^', label = 'antenna')
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
