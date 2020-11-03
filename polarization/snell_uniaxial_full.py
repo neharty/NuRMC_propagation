@@ -69,7 +69,9 @@ nss = 1.35
 nd = 1.78
 c = 0.0132
 
+#sim model parameters
 d = 0.1
+cont = 0.999
 
 def nz(z):
     # z index of refraction function
@@ -84,7 +86,7 @@ def nz(z):
     if np.abs(z) <= d:
         return (n2-n1)*z/(2*d) +(n2+n1)/2
     if z < -d:
-        return a + b*np.exp(z*c) 
+        return cont*no(z) 
 
 def no(z):
     # x-y plane index of refraction function
@@ -98,7 +100,7 @@ def no(z):
     if np.abs(z) <= d:
         return (n2-n1)*z/(2*d) + (n2+n1)/2
     if z < -d:
-        return 0.99*nz(z)
+        return a + b*np.exp(z*c)
 
 def eps(z):
     # epsilon is diagonal
@@ -116,12 +118,21 @@ def dnodz(z):
     if np.abs(z) <= d:
         return (n2-n1)/(2*d)
     if z < -d:
-        return 0.99*dnzdz(z)
+        return b*c*np.exp(z*c)
 
 def dnzdz(z):
     #derivative of z index of refraction
+    a = nd
     b = nss - nd
-    return b*c*np.exp(z*c)
+    n1 = a + b*np.exp(-d*c)
+    n2 = 1
+    
+    if z > d:
+        return 0
+    if np.abs(z) <= d:
+        return (n2-n1)/(2*d)
+    if z < -d:
+        return cont*dnodz(z)
 
 def ns(z):
     #s-polarization index of refraction
@@ -202,7 +213,7 @@ plt.plot(0, z0, '*', label = 'source')
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
-plt.savefig('snells_uniaxial_example.png', dpi=600)
+plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 plt.clf()
 
 #sweeping data
@@ -226,16 +237,17 @@ for j in range(len(zarr)):
         plt.plot(podesol.t, podesol.y[1], color='blue')
         plt.plot(sodesol.t, sodesol.y[1], '--', color='orange')
 
-plt.title('blue = p-wave, orange = s-wave')
+plt.title('blue = p-wave, orange = s-wave, cont = '+str(cont))
 plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
 
 tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p launch', 't_p [ns]', 's launch', 't_s [ns]', 'p-s delta launch', 'p-s delta t [ns]'])
-tab.to_csv('snells_uniaxial_data.csv')
 
-plt.savefig('snell_uniaxial_sweep.png', dpi=600)
+tab.to_csv('snells_uniaxial_data'+str(cont).replace('.','')+'.csv')
+
+plt.savefig('snell_uniaxial_sweep_'+str(cont).replace('.','')+'.png', dpi=600)
 '''
 fl = open('maxerr.txt', 'a')
 fl.write(str(dl)+','+str(np.max(np.abs(sol.sol(r2)[1] - z2))))
