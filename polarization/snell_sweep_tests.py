@@ -3,7 +3,7 @@ from scipy.integrate import solve_ivp, simps
 import polarizationfns as pl
 import matplotlib.pyplot as plt
 import argparse
-from scipy.optimize import minimize, curve_fit, root, root_scalar
+from scipy.optimize import minimize, curve_fit, root_scalar
 import pandas as pd
 from tabulate import tabulate
 from scipy.constants import speed_of_light
@@ -71,8 +71,8 @@ nd = 1.78
 c = 0.0132
 
 #sim model parameters
-d = 0.1
-cont = 0.99
+d = 0.5
+cont = 0.9
 
 def nz(z):
     # z index of refraction function
@@ -181,15 +181,15 @@ def sodes(t,y):
 def pfn(theta, rmax, z0, zm, dr):
     sol = solve_ivp(podes, [0, rmax], [theta, z0, 0], method='DOP853', max_step = dr)
     zsol = sol.y[1,-1]
-    return np.abs(zsol - zm)**2 + np.abs(npp(theta, z0)*np.sin(theta) - npp(sol.y[0,-1], zm)*np.sin(sol.y[0,-1]))**2
+    return zsol - zm
 
 def sfn(theta, rmax, z0, zm, dr):
     sol = solve_ivp(sodes, [0, rmax], [theta, z0, 0], method='DOP853', max_step = dr)
     zsol = sol.y[1,-1]
-    return np.abs(zsol - zm)**2 + np.abs(no(z0)*np.sin(theta) - no(zm)*np.sin(sol.y[0,-1]))**2
+    return zsol - zm
 
 rmax = 1000
-z0 = -1000
+z0 = -200
 zm = -200
 dr = 10
 dz = 10
@@ -201,13 +201,12 @@ def initialangle(zd, z0):
         return np.pi/2 - np.arctan((zd-z0)/rmax)
 
 def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr):
-    minsol = minimize(minfn, x0=mininit, args=(rmax, z0, zm, dr), method='Nelder-Mead', options={'maxiter':2000,'maxfev': 2000})
-    print(minsol.success, minsol.message)
-    odesol = solve_ivp(odefn, [0, rmax], [minsol.x[0], z0, 0], method='DOP853', max_step=dr)
+    minsol = root_scalar(minfn, x0=mininit, args=(rmax, z0, zm, dr), method='brentq', bracket=[mininit + 0.3, mininit-0.3])
+    odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step = dr)
     return odesol
 
 #example for plotting
-
+'''
 podesol1 = get_ray(pfn, podes, initialangle(zm, z0), rmax, z0, zm, dr)
 podesol2 = get_ray(pfn, podes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr)
 
@@ -248,14 +247,14 @@ for j in range(len(zarr)):
 
     #tmptab[j,0], tmptab[j,2], tmptab[j, 4] = pminsol.x[0], sminsol.x[0], pminsol.x[0]-sminsol.x[0]
     #tmptab[j,1], tmptab[j,3], tmptab[j, 5] = tp, ts, tp-ts
-    #if np.abs(podesol1.y[1,-1] - zm) <= 1e-4 or np.abs(sodesol1.y[1,-1] - zm)<= 1e-4:
-    plt.figure(1)
-    plt.plot(podesol1.t, podesol1.y[1], color='blue')
-    plt.plot(podesol2.t, podesol2.y[1], '--', color='orange')
-    
-    plt.figure(2)
-    plt.plot(sodesol1.t, sodesol1.y[1], '', color='orange')
-    plt.plot(sodesol2.t, sodesol2.y[1], '--', color='c')
+    if np.abs(podesol1.y[1,-1] - zm) <= 1e-4 or np.abs(sodesol1.y[1,-1] - zm)<= 1e-4:
+        plt.figure(1)
+        plt.plot(podesol1.t, podesol1.y[1], color='blue')
+        plt.plot(podesol2.t, podesol2.y[1], '--', color='r')
+        
+        plt.figure(2)
+        plt.plot(sodesol1.t, sodesol1.y[1], '', color='orange')
+        plt.plot(sodesol2.t, sodesol2.y[1], '--', color='c')
 
 #plt.title('blues = p-waves, oranges = s-waves, cont = '+str(cont))
 plt.title('s-waves, cont = '+str(cont))
@@ -270,6 +269,7 @@ plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
+'''
 
 #tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p launch', 't_p [ns]', 's launch', 't_s [ns]', 'p-s delta launch', 'p-s delta t [ns]'])
 
@@ -282,4 +282,28 @@ fl.write(str(dl)+','+str(np.max(np.abs(sol.sol(r2)[1] - z2))))
 fl.write('\n')
 fl.close()
 '''
+#plt.show()
+
+angs = np.linspace(np.pi/12, np.pi/2, num=50)
+depths = np.linspace(-100, -2000, num=5)
+zp = np.zeros(len(angs))
+zs = np.zeros(len(angs))
+for i in range(len(angs)):
+    #for j in range(len(depths)):
+        podesol = solve_ivp(podes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
+        sodesol = solve_ivp(sodes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
+        #plt.figure(1)
+        #plt.plot(podesol.t, podesol.y[1])
+        #plt.plot
+    
+        zp[i], zs[i] = podesol.y[1, -1], sodesol.y[1,-1]
+        
+#plt.figure(2)
+plt.plot(angs, zp-zm,'-', angs, zs-zm, '--')
+plt.legend(['p-wave', 's-wave'])
+plt.hlines(0, angs[0], angs[-1], colors='r', linestyles='--')
+plt.vlines([np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax)], min(min(zp), min(zs))-10, max(max(zp), max(zs)))
+plt.xlabel('initial ' + r'$\theta$')
+plt.ylabel('antenna depth - final depth')
+plt.title('radial distance = 1 km, initial depth = '+str(z0)+' m')
 plt.show()
