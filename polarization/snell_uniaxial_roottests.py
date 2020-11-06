@@ -195,20 +195,66 @@ def initialangle(zd, z0):
     if zd-z0 >= 0:
         return np.pi/2 - np.arctan((zd-z0)/rmax)
 
-def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr, a, b):
-    zend1, zend2 = objfn(a, odefn, rmax, z0, zm, dr), objfn(b, odefn, rmax, z0, zm, dr)
-    while np.sign(zend1) == np.sign(zend2) and b <= np.pi/2:
-        a+=0.01
-        b+=0.01
-        zend1, zend2 = objfn(a, odefn, rmax, z0, zm, dr), objfn(b, odefn, rmax, z0, zm, dr)
-    if b > np.pi/2:
-        print('ERROR: no root found')
-        return None
-    print(zend1,zend2)
-    minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), method='brenth', bracket=[a,b])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
+def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr, a, b): 
+    lb, rb = get_bounds(a, b, odefn, rmax, z0, zm, dr)
+    minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), method='brenth', bracket=[lb,rb], options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
     print(minsol.converged, minsol.flag)
     odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
     return odesol
+
+def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
+
+    if(rightguess <= leftguess):
+        print('invalid inputs: must have rightguess > leftguess')
+        exit()
+    
+    xtol=1e-4
+    maxiter=200
+    
+    dxi=1e-2
+    dx = dxi
+    zend1, zend2 = objfn(leftguess, odefn, rmax, z0, zm, dr), objfn(rightguess, odefn, rmax, z0, zm, dr)
+    while np.sign(zend1) == np.sign(zend2) and rightguess <= np.pi/2:
+        leftguess += dx
+        rightguess += dx
+        zend1, zend2 = objfn(leftguess, odefn, rmax, z0, zm, dr), objfn(rightguess, odefn, rmax, z0, zm, dr)
+    if rightguess > np.pi/2:
+        print('ERROR: no interval found')
+        return None, None
+    else:
+        #tighten left bound
+        inum = 0
+        lastguess = leftguess
+        nextguess = leftguess
+        while(dx >= xtol and inum < maxiter):
+            inum += 1
+            nextguess = lastguess + dx
+            if (np.sign(objfn(nextguess, odefn, rmax, z0, zm, dr)) != np.sign(objfn(rightguess, odefn, rmax, z0, zm, dr))):
+                lastguess = nextguess
+            else:
+                nextguess = lastguess
+                dx = dx/2
+
+        lb = nextguess
+
+        #tighten right bound
+        dx = dxi
+        inum = 0
+        lastguess = rightguess
+        nextguess = rightguess
+        while(dx >= xtol and inum < maxiter):
+            inum += 1
+            nextguess = lastguess-dx
+            if np.sign(objfn(nextguess, odefn, rmax, z0, zm, dr)) != np.sign(objfn(lb, odefn, rmax, z0, zm, dr)):
+                lastguess = nextguess
+            else:
+                nextguess = lastguess
+                dx = dx/2
+
+        rb = nextguess
+
+    print('returned bounds:', lb, rb)
+    return lb, rb
 
 #example for plotting
 
@@ -234,12 +280,12 @@ plt.clf()
 input()
 
 #sweeping data
-datanum = 10
+datanum = 11
 zarr = np.linspace(0, -2000, num=datanum)
 tmptab = np.zeros((datanum, 6))
 for j in range(len(zarr)):
     z0 = zarr[j]
-    print('depth: ', z0)
+    print('\ndepth: ', z0)
     
     plt.figure(1)
     podesol1 = get_ray(objfn, podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))

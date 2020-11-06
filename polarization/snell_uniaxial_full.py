@@ -188,6 +188,11 @@ def sfn(theta, rmax, z0, zm, dr):
     zsol = sol.y[1,-1]
     return np.abs(zsol - zm)**2 + np.abs(no(z0)*np.sin(theta) - no(zm)*np.sin(sol.y[0,-1]))**2
 
+def objfn(theta, ode, rmax, z0, zm, dr):
+    sol = solve_ivp(ode, [0, rmax], [theta, z0, 0], method='DOP853', max_step = dr)
+    zsol = sol.y[1,-1]
+    return zsol - zm
+
 rmax = 1000
 z0 = -1000
 zm = -200
@@ -200,19 +205,74 @@ def initialangle(zd, z0):
     if zd-z0 >= 0:
         return np.pi/2 - np.arctan((zd-z0)/rmax)
 
-def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr):
-    minsol = minimize(minfn, x0=mininit, args=(rmax, z0, zm, dr), method='Nelder-Mead', options={'maxiter':2000,'maxfev': 2000})
+def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
+
+    if(rightguess <= leftguess):
+        print('invalid inputs: must have rightguess > leftguess')
+        exit()
+    
+    xtol=1e-4
+    maxiter=200
+    
+    dxi=1e-2
+    dx = dxi
+    zend1, zend2 = objfn(leftguess, odefn, rmax, z0, zm, dr), objfn(rightguess, odefn, rmax, z0, zm, dr)
+    while np.sign(zend1) == np.sign(zend2) and rightguess <= np.pi/2:
+        leftguess += dx
+        rightguess += dx
+        zend1, zend2 = objfn(leftguess, odefn, rmax, z0, zm, dr), objfn(rightguess, odefn, rmax, z0, zm, dr)
+    if rightguess > np.pi/2:
+        print('ERROR: no interval found')
+        return None, None
+    else:
+        #tighten left bound
+        inum = 0
+        lastguess = leftguess
+        nextguess = leftguess
+        while(dx >= xtol and inum < maxiter):
+            inum += 1
+            nextguess = lastguess + dx
+            if (np.sign(objfn(nextguess, odefn, rmax, z0, zm, dr)) != np.sign(objfn(rightguess, odefn, rmax, z0, zm, dr))):
+                lastguess = nextguess
+            else:
+                nextguess = lastguess
+                dx = dx/2
+
+        lb = nextguess
+
+        #tighten right bound
+        dx = dxi
+        inum = 0
+        lastguess = rightguess
+        nextguess = rightguess
+        while(dx >= xtol and inum < maxiter):
+            inum += 1
+            nextguess = lastguess-dx
+            if np.sign(objfn(nextguess, odefn, rmax, z0, zm, dr)) != np.sign(objfn(lb, odefn, rmax, z0, zm, dr)):
+                lastguess = nextguess
+            else:
+                nextguess = lastguess
+                dx = dx/2
+
+        rb = nextguess
+
+    print('returned bounds:', lb, rb)
+    return lb, rb
+
+def get_ray(minfn, odefn, lb0, rb0, rmax, z0, zm, dr):
+    lb, rb = get_bounds(lb0, rb0, odefn, rmax, z0, zm, dr)
+    minsol = minimize(minfn, (rb+lb)/2,  args=(rmax, z0, zm, dr), bounds=(lb, rb))
     print(minsol.success, minsol.message)
     odesol = solve_ivp(odefn, [0, rmax], [minsol.x[0], z0, 0], method='DOP853', max_step=dr)
     return odesol
 
 #example for plotting
 
-podesol1 = get_ray(pfn, podes, initialangle(zm, z0), rmax, z0, zm, dr)
-podesol2 = get_ray(pfn, podes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr)
+podesol1 = get_ray(pfn, podes, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr)
+podesol2 = get_ray(pfn, podes, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2 - np.arctan((zm-z0)/rmax), rmax, z0, zm, dr)
 
-sodesol1 = get_ray(sfn, sodes, initialangle(zm, z0), rmax, z0, zm, dr)
-sodesol2 = get_ray(sfn, sodes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr)
+sodesol1 = get_ray(sfn, sodes, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr)
+sodesol2 = get_ray(sfn, sodes, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), rmax, z0, zm, dr)
 
 plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
 plt.plot(podesol2.t, podesol2.y[1], '-.', label = 'p2-wave')

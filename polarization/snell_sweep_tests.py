@@ -189,7 +189,7 @@ def sfn(theta, rmax, z0, zm, dr):
     return zsol - zm
 
 rmax = 1000
-z0 = -200
+z0 = -600
 zm = -200
 dr = 10
 dz = 10
@@ -284,10 +284,11 @@ fl.close()
 '''
 #plt.show()
 
-angs = np.linspace(np.pi/12, np.pi/2, num=50)
+angs = np.linspace(np.pi/12, np.pi/2, num=100)
 depths = np.linspace(-100, -2000, num=5)
 zp = np.zeros(len(angs))
 zs = np.zeros(len(angs))
+
 for i in range(len(angs)):
     #for j in range(len(depths)):
         podesol = solve_ivp(podes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
@@ -299,10 +300,106 @@ for i in range(len(angs)):
         zp[i], zs[i] = podesol.y[1, -1], sodesol.y[1,-1]
         
 #plt.figure(2)
-plt.plot(angs, zp-zm,'-', angs, zs-zm, '--')
-plt.legend(['p-wave', 's-wave'])
-plt.hlines(0, angs[0], angs[-1], colors='r', linestyles='--')
-plt.vlines([np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax)], min(min(zp), min(zs))-10, max(max(zp), max(zs)))
+plt.plot(angs, zp-zm,'-', label='p-waves')
+plt.plot(angs, zs-zm, '--', label='s-waves')
+plt.hlines(0, angs[0], angs[-1], colors='r', linestyles='-')
+plt.vlines([np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax)], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='k')
+plt.xlabel('initial ' + r'$\theta$')
+plt.ylabel('antenna depth - final depth')
+plt.title('radial distance = 1 km, initial depth = '+str(z0)+' m')
+plt.savefig(str(z0)+'m_depthsvtheta.pdf')
+#plt.show()
+
+def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
+
+    if(rightguess <= leftguess):
+        print('invalid inputs: must have rightguess > leftguess')
+        exit()
+    
+    xtol=1e-4
+    maxiter=200
+    
+    dxi=1e-2
+    dx = dxi
+    zend1, zend2 = solve_ivp(odefn, [0, rmax], [leftguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm, solve_ivp(odefn, [0, rmax], [rightguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm
+    while np.sign(zend1) == np.sign(zend2) and rightguess <= np.pi/2:
+        leftguess += dx
+        rightguess += dx
+        zend1, zend2 = solve_ivp(odefn, [0, rmax], [leftguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm, solve_ivp(odefn, [0, rmax], [rightguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm
+    print('z ends:', np.sign(zend1), np.sign(zend2))
+    print('adjusted interval:', leftguess, rightguess)
+    if rightguess > np.pi/2:
+        print('ERROR: no interval found')
+        return None, None
+        #plt.vlines([np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax)], min(min(zp), min(zs))-10, max(max(zp), max(zs)))
+    else:
+        #tighten left bound
+        inum = 0
+        lastguess = leftguess
+        nextguess = leftguess
+        while(dx >= xtol and inum < maxiter):
+            inum += 1
+            nextguess = lastguess + dx
+            #print('-----\nstart', lastguess, nextguess, dx, inum)
+            #print(np.sign(solve_ivp(odefn, [0, rmax], [nextguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm), np.sign(solve_ivp(odefn, [0, rmax], [rightguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm))
+            if (np.sign(solve_ivp(odefn, [0, rmax], [nextguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm) != np.sign(solve_ivp(odefn, [0, rmax], [rightguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm)):
+                lastguess = nextguess
+                #print('1st if', lastguess, nextguess, dx)
+            else:
+                nextguess = lastguess
+                dx = dx/2
+                #print('else', lastguess, nextguess, dx)
+
+        print('lb dx, iters:', dx, inum)
+        lb = lastguess
+
+        #tighten right bound
+        dx = dxi
+        inum = 0
+        lastguess = rightguess
+        nextguess = rightguess
+        while(dx >= xtol and inum < maxiter):
+            inum += 1
+            nextguess = lastguess-dx
+            #print('-----\nstart', lastguess, nextguess, dx, inum)
+            #print(np.sign(solve_ivp(odefn, [0, rmax], [nextguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm), np.sign(solve_ivp(odefn, [0, rmax], [lb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm))
+            if np.sign(solve_ivp(odefn, [0, rmax], [nextguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm) != np.sign(solve_ivp(odefn, [0, rmax], [lb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm):
+                lastguess = nextguess
+            else:
+                nextguess = lastguess
+                dx = dx/2
+
+        print('rb dx, iters:', dx, inum)
+        rb = nextguess
+
+    print('returned bounds:', lb, rb)
+    print('signs:', np.sign(solve_ivp(odefn, [0, rmax], [lb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm), np.sign(solve_ivp(odefn, [0, rmax], [rb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm))
+    return lb, rb
+
+print('p1 bounds')
+print('initals:', np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+p1lb, p1rb = get_bounds(np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), podes, rmax, z0, zm, dr) 
+p2lb, p2rb = get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), podes, rmax, z0, zm, dr)
+if p1lb is not None:
+    plt.vlines(p1lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='orange')
+    plt.vlines(p1rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
+    plt.vlines(p2lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='orange')
+    plt.vlines(p2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
+    plt.show()
+else:
+    print('AAAHHHHHHHHHH')
+    input()
+
+print('p2 bounds')
+#p2lb, p2rb = get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), podes)
+#s1bs, s2bs = get_bounds(np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), podes), get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), sodes)
+
+if p1lb is not None and p2lb is not None:
+    plt.vlines([p1lb, p1ub, p2lb, p2ub], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='k')
+else:
+    print('uh oh (press ctrl+c to exit)')
+    input()
+
 plt.xlabel('initial ' + r'$\theta$')
 plt.ylabel('antenna depth - final depth')
 plt.title('radial distance = 1 km, initial depth = '+str(z0)+' m')
