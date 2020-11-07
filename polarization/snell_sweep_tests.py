@@ -71,7 +71,7 @@ nd = 1.78
 c = 0.0132
 
 #sim model parameters
-d = 0.5
+d = 1
 cont = 0.9
 
 def nz(z):
@@ -284,15 +284,15 @@ fl.close()
 '''
 #plt.show()
 
-angs = np.linspace(np.pi/12, np.pi/2, num=100)
+angs = np.linspace(np.arcsin(1/ns(z0))-0.1, np.pi/2, num=1000)
 depths = np.linspace(-100, -2000, num=5)
 zp = np.zeros(len(angs))
 zs = np.zeros(len(angs))
 
 for i in range(len(angs)):
     #for j in range(len(depths)):
-        podesol = solve_ivp(podes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
-        sodesol = solve_ivp(sodes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
+        podesol = solve_ivp(podes, [0, rmax], [angs[i], z0, 0], method='LSODA', max_step=dr)
+        sodesol = solve_ivp(sodes, [0, rmax], [angs[i], z0, 0], method='LSODA', max_step=dr)
         #plt.figure(1)
         #plt.plot(podesol.t, podesol.y[1])
         #plt.plot
@@ -326,7 +326,7 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
         leftguess += dx
         rightguess += dx
         zend1, zend2 = solve_ivp(odefn, [0, rmax], [leftguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm, solve_ivp(odefn, [0, rmax], [rightguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm
-    print('z ends:', np.sign(zend1), np.sign(zend2))
+    #print('z ends:', np.sign(zend1), np.sign(zend2))
     print('adjusted interval:', leftguess, rightguess)
     if rightguess > np.pi/2:
         print('ERROR: no interval found')
@@ -346,9 +346,10 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
                 lastguess = nextguess
                 #print('1st if', lastguess, nextguess, dx)
             else:
-                nextguess = lastguess
-                dx = dx/2
+                #nextguess = lastguess
+                #dx = dx/2
                 #print('else', lastguess, nextguess, dx)
+                break
 
         print('lb dx, iters:', dx, inum)
         lb = lastguess
@@ -366,11 +367,12 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
             if np.sign(solve_ivp(odefn, [0, rmax], [nextguess, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm) != np.sign(solve_ivp(odefn, [0, rmax], [lb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm):
                 lastguess = nextguess
             else:
-                nextguess = lastguess
-                dx = dx/2
+                #nextguess = lastguess
+                #dx = dx/2
+                break
 
         print('rb dx, iters:', dx, inum)
-        rb = nextguess
+        rb = lastguess
 
     print('returned bounds:', lb, rb)
     print('signs:', np.sign(solve_ivp(odefn, [0, rmax], [lb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm), np.sign(solve_ivp(odefn, [0, rmax], [rb, z0, 0], method='DOP853', max_step=dr).y[1,-1]-zm))
@@ -379,6 +381,7 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
 print('p1 bounds')
 print('initals:', np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 p1lb, p1rb = get_bounds(np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), podes, rmax, z0, zm, dr) 
+print('p2 bounds')
 p2lb, p2rb = get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), podes, rmax, z0, zm, dr)
 if p1lb is not None:
     plt.vlines(p1lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='orange')

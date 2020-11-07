@@ -71,7 +71,7 @@ nd = 1.78
 c = 0.0132
 
 #sim model parameters
-d = 0.1
+d = 1
 cont = 0.9
 
 def nz(z):
@@ -184,7 +184,7 @@ def objfn(theta, ode, rmax, z0, zm, dr):
     return zsol - zm
 
 rmax = 1000
-z0 = -600
+z0 = -300
 zm = -200
 dr = 10
 dz = 10
@@ -197,7 +197,11 @@ def initialangle(zd, z0):
 
 def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr, a, b): 
     lb, rb = get_bounds(a, b, odefn, rmax, z0, zm, dr)
-    minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), method='brenth', bracket=[lb,rb], options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
+    if(lb == None and rb == None):
+        return None
+    else:
+        minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
+
     print(minsol.converged, minsol.flag)
     odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
     return odesol
@@ -205,8 +209,10 @@ def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr, a, b):
 def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
 
     if(rightguess <= leftguess):
-        print('invalid inputs: must have rightguess > leftguess')
-        exit()
+        tmp = rightguess
+        rightguess = leftguess
+        leftguess = tmp
+        del tmp
     
     xtol=1e-4
     maxiter=200
@@ -232,10 +238,11 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
             if (np.sign(objfn(nextguess, odefn, rmax, z0, zm, dr)) != np.sign(objfn(rightguess, odefn, rmax, z0, zm, dr))):
                 lastguess = nextguess
             else:
-                nextguess = lastguess
-                dx = dx/2
+                #nextguess = lastguess
+                #dx = dx/2
+                break
 
-        lb = nextguess
+        lb = lastguess
 
         #tighten right bound
         dx = dxi
@@ -248,14 +255,15 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
             if np.sign(objfn(nextguess, odefn, rmax, z0, zm, dr)) != np.sign(objfn(lb, odefn, rmax, z0, zm, dr)):
                 lastguess = nextguess
             else:
-                nextguess = lastguess
-                dx = dx/2
+                #nextguess = lastguess
+                #dx = dx/2
+                break
 
-        rb = nextguess
+        rb = lastguess
 
     print('returned bounds:', lb, rb)
     return lb, rb
-
+'''
 #example for plotting
 
 podesol1 = get_ray(objfn, podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
@@ -278,7 +286,7 @@ plt.show()
 plt.clf()
 
 input()
-
+'''
 #sweeping data
 datanum = 11
 zarr = np.linspace(0, -2000, num=datanum)
@@ -288,8 +296,11 @@ for j in range(len(zarr)):
     print('\ndepth: ', z0)
     
     plt.figure(1)
+    #podesol1 = get_ray(objfn, podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+    #podesol2 = get_ray(objfn, podes, initialangle(-zm, z0), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    print('inital guesses: ', np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     podesol1 = get_ray(objfn, podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    podesol2 = get_ray(objfn, podes, initialangle(-zm, z0), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    podesol2 = get_ray(objfn, podes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     if(podesol1 is not None):
         tp1 = 1e9*podesol1.y[2,-1]/speed_of_light
         plt.plot(podesol1.t, podesol1.y[1], color='blue')
@@ -298,8 +309,11 @@ for j in range(len(zarr)):
         plt.plot(podesol2.t, podesol2.y[1], '--', color='orange')
     
     plt.figure(2)
+    #sodesol1 = get_ray(objfn, sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+    #sodesol2 = get_ray(objfn, sodes, initialangle(-zm, z0), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     sodesol1 = get_ray(objfn, sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    sodesol2 = get_ray(objfn, sodes, initialangle(-zm, z0), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    sodesol2 = get_ray(objfn, sodes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+
     if(sodesol1 is not None):
         ts1 = 1e9*sodesol1.y[2,-1]/speed_of_light
         plt.plot(sodesol1.t, sodesol1.y[1], '', color='orange')
