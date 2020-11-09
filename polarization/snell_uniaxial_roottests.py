@@ -72,30 +72,26 @@ for j in range(len(zarr)):
     print('\ndepth: ', z0)
     
     plt.figure(1)
-    #podesol1 = get_ray(objfn, podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    #podesol2 = get_ray(objfn, podes, initialangle(-zm, z0), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-    print('inital guesses: ', np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-    podesol1 = sf.get_ray(sf.objfn, sf.podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+    print('inital guesses: ', np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    podesol1 = sf.get_ray(sf.objfn, sf.podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
     podesol2 = sf.get_ray(sf.objfn, sf.podes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     if(podesol1 is not None):
         tp1 = 1e9*podesol1.y[2,-1]/speed_of_light
-        plt.plot(podesol1.t, podesol1.y[1], color='blue')
+        plt.plot(podesol1.t, podesol1.y[1], 'b-', label=str(z0))
     if(podesol2 is not None):
         tp2 = 1e9*podesol2.y[2,-1]/speed_of_light
-        plt.plot(podesol2.t, podesol2.y[1], '--', color='orange')
+        plt.plot(podesol2.t, podesol2.y[1], '--', color='orange', label=str(z0))
     
     plt.figure(2)
-    #sodesol1 = get_ray(objfn, sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    #sodesol2 = get_ray(objfn, sodes, initialangle(-zm, z0), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-    sodesol1 = sf.get_ray(sf.objfn, sf.sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+    sodesol1 = sf.get_ray(sf.objfn, sf.sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
     sodesol2 = sf.get_ray(sf.objfn, sf.sodes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 
     if(sodesol1 is not None):
         ts1 = 1e9*sodesol1.y[2,-1]/speed_of_light
-        plt.plot(sodesol1.t, sodesol1.y[1], '', color='orange')
+        plt.plot(sodesol1.t, sodesol1.y[1], 'b-', label = str(z0))
     if(sodesol2 is not None):
         ts2 = 1e9*sodesol2.y[2,-1]/speed_of_light
-        plt.plot(sodesol2.t, sodesol2.y[1], '--', color='c')
+        plt.plot(sodesol2.t, sodesol2.y[1], '--', color='orange', label = str(z0))
 
     #tmptab[j,0], tmptab[j,2], tmptab[j, 4] = pminsol.x[0], sminsol.x[0], pminsol.x[0]-sminsol.x[0]
     #tmptab[j,1], tmptab[j,3], tmptab[j, 5] = tp, ts, tp-ts
@@ -105,14 +101,14 @@ plt.title('s-waves, cont = '+str(cont))
 plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.xlabel('r')
 plt.ylabel('z')
-plt.legend()
+#plt.legend()
 
 plt.figure(1)
 plt.title('p-waves, cont = '+str(cont))
 plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.xlabel('r')
 plt.ylabel('z')
-plt.legend()
+#plt.legend()
 
 #tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p launch', 't_p [ns]', 's launch', 't_s [ns]', 'p-s delta launch', 'p-s delta t [ns]'])
 

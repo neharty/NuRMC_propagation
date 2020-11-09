@@ -16,13 +16,13 @@ c = 0.0132
 #sim model parameters
 d = 1
 cont = 0.9
+n2 = 0.1
 
 def nz(z):
     # z index of refraction function
     a = nd
     b = nss - nd
     n1 = cont*(a + b*np.exp(-d*c))
-    n2 = 1
 
     if  z > d:
         return 1
@@ -37,6 +37,19 @@ def no(z):
     a = nd
     b = nss - nd
     n1 = a + b*np.exp(-d*c)
+
+    if  z > d:
+        return 1
+    if np.abs(z) <= d:
+        return (n2-n1)*z/(2*d) + (n2+n1)/2
+    if z < -d:
+        return a + b*np.exp(z*c)
+
+def notmp(z):
+    #for calculating the bounds
+    a = nd
+    b = nss - nd
+    n1 = a + b*np.exp(-d*c)
     n2 = 1
 
     if  z > d:
@@ -45,6 +58,7 @@ def no(z):
         return (n2-n1)*z/(2*d) + (n2+n1)/2
     if z < -d:
         return a + b*np.exp(z*c)
+
 
 def eps(z):
     # epsilon is diagonal
@@ -55,7 +69,6 @@ def dnodz(z):
     a = nd
     b = nss - nd
     n1 = a + b*np.exp(-d*c)
-    n2 = 1
 
     if z > d:
         return 0
@@ -69,7 +82,6 @@ def dnzdz(z):
     a = nd
     b = nss - nd
     n1 = cont*(a + b*np.exp(-d*c))
-    n2 = 1
 
     if z > d:
         return 0
@@ -81,6 +93,9 @@ def dnzdz(z):
 def ns(z):
     #s-polarization index of refraction
     return no(z)
+
+def nstmp(z):
+    return notmp(z)
 
 def dnsdz(z):
     #derivative of s-polarization index of refraction
@@ -102,7 +117,6 @@ def dnpdz(theta, z):
     a = nd
     b = nss - nd
     n1 = a + b*np.exp(-d*c)
-    n2 = 1
 
     if z > d:
         return 0
@@ -149,25 +163,33 @@ def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr, a, b):
     odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
     return odesol
 
-def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr):
+def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr, xtol = None, maxiter=None):
 
     if(rightguess <= leftguess):
         tmp = rightguess
         rightguess = leftguess
         leftguess = tmp
         del tmp
+    
+    if xtol != None:
+        xtol = xtol
+    else:
+        xtol=1e-4
 
-    xtol=1e-4
-    maxiter=200
+    if maxiter != None:
+        maxiter = maxiter
+    else:
+        maxiter=200
 
     dxi=1e-2
     dx = dxi
     zend1, zend2 = objfn(leftguess, odefn, rmax, z0, zm, dr), objfn(rightguess, odefn, rmax, z0, zm, dr)
-    while np.sign(zend1) == np.sign(zend2) and rightguess <= np.pi/2:
+    while np.sign(zend1) == np.sign(zend2) and rightguess <= np.pi:
         leftguess += dx
         rightguess += dx
         zend1, zend2 = objfn(leftguess, odefn, rmax, z0, zm, dr), objfn(rightguess, odefn, rmax, z0, zm, dr)
-    if rightguess > np.pi/2:
+    
+    if rightguess > np.pi:
         print('ERROR: no interval found')
         return None, None
     else:

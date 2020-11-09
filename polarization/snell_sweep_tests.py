@@ -34,37 +34,35 @@ for i in range(len(angs)):
 plt.plot(angs, zp-zm,'-', label='p-waves')
 plt.plot(angs, zs-zm, '--', label='s-waves')
 plt.hlines(0, angs[0], angs[-1], colors='r', linestyles='-')
-plt.vlines([np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax)], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='k')
+#plt.vlines([np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax)], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='k')
 plt.xlabel('initial ' + r'$\theta$')
 plt.ylabel('antenna depth - final depth')
 plt.title('radial distance = 1 km, initial depth = '+str(z0)+' m')
 #plt.savefig(str(z0)+'m_depthsvtheta.pdf')
-plt.show()
+#plt.show()
 
 print('p1 bounds')
 print('initals:', np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 p1lb, p1rb = sf.get_bounds(np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), sf.podes, rmax, z0, zm, dr) 
 print('p2 bounds')
 p2lb, p2rb = sf.get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), sf.podes, rmax, z0, zm, dr)
-if p1lb is not None:
+if p1lb is not None and p1rb is not None:
     plt.vlines(p1lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='orange')
     plt.vlines(p1rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
+if p2lb is not None and p2rb is not None:
     plt.vlines(p2lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='orange')
     plt.vlines(p2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
-    plt.show()
-else:
-    print('AAAHHHHHHHHHH')
-    input()
 
-print('p2 bounds')
-#p2lb, p2rb = get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), podes)
-#s1bs, s2bs = get_bounds(np.arcsin(1/ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), podes), get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), sodes)
-
-if p1lb is not None and p2lb is not None:
-    plt.vlines([p1lb, p1ub, p2lb, p2ub], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='k')
-else:
-    print('uh oh (press ctrl+c to exit)')
-    input()
+print('s1 bounds')
+s1lb, s1rb = sf.get_bounds(np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), sf.sodes, rmax, z0, zm, dr)
+print('s2 bounds')
+s2lb, s2rb = sf.get_bounds(np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax), sf.sodes, rmax, z0, zm, dr)
+if s1lb is not None and s1rb is not None: 
+    plt.vlines(s1lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='m')
+    plt.vlines(s1rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='c')
+if s2lb is not None and s2rb is not None:
+    plt.vlines(s2lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='m')
+    plt.vlines(s2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='c')
 
 plt.xlabel('initial ' + r'$\theta$')
 plt.ylabel('antenna depth - final depth')
