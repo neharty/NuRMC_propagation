@@ -16,7 +16,7 @@ c = 0.0132
 #sim model parameters
 d = 1
 cont = 0.9
-n2 = 0.1
+n2 = 1
 
 def nz(z):
     # z index of refraction function
