@@ -41,16 +41,16 @@ def initialangle(zd, z0):
 
 #example for plotting
 
-podesol1 = sf.get_ray(sf.objfn, sf.podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-podesol2 = sf.get_ray(sf.objfn, sf.podes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+podesol1 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), np.pi/2-np.arctan((-zm-z0)/rmax))
+podesol2 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 
-sodesol1 = sf.get_ray(sf.objfn, sf.sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-sodesol2 = sf.get_ray(sf.objfn, sf.sodes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+sodesol1 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+sodesol2 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 
 plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
-plt.plot(podesol2.t, podesol2.y[1], '-.', label = 'p2-wave')
+plt.plot(podesol2.t, podesol2.y[1], label = 'p2-wave')
 plt.plot(sodesol1.t, sodesol1.y[1], '--', label = 's1-wave')
-plt.plot(sodesol2.t, sodesol2.y[1], '.', label = 's2-wave')
+plt.plot(sodesol2.t, sodesol2.y[1], '--', label = 's2-wave')
 plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.plot(0, z0, '*', label = 'source')
 plt.title('contrast = '+str(cont))
@@ -61,13 +61,13 @@ plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 #plt.show()
 plt.clf()
 
-#input()
+input()
 
 #sweeping data
 datanum = 11
 zarr = np.linspace(0, -2000, num=datanum)
 #tab = pd.DataFrame(index=zarr, columns=['p1 launch', 'p1 travel time [ns]', 's1 launch', 's1 travel time [ns]', 'p-s delta launch 1', 'p-s delta t 1 [ns]', 'p2 launch', 'p2 travel time [ns]', 's2 launch', 's2 travel time [ns]', 'p-s delta launch 2', 'p-s delta t 2 [ns]'])
-tmptab = np.zeros((datanum, 12))
+tmptab = np.zeros((datanum, 16))
 
 fig1, ax1 = plt.subplots()
 fig2, ax2 = plt.subplots()
@@ -77,33 +77,33 @@ for j in range(len(zarr)):
     print('\ndepth: ', z0)
     
     print('inital guesses: ', np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-    podesol1 = sf.get_ray(sf.objfn, sf.podes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    podesol2 = sf.get_ray(sf.objfn, sf.podes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    podesol1 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+    podesol2 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     if(podesol1 is not None):
         tp1 = 1e9*podesol1.y[2,-1]/speed_of_light
         ax1.plot(podesol1.t, podesol1.y[1], 'b-', label=str(z0))
-        tmptab[j, 0] , tmptab[j, 1] = podesol1.y[0,0], tp1
+        tmptab[j, 0] , tmptab[j, 1], tmptab[j,2] = podesol1.y[0,0], tp1, np.abs(np.abs(sf.npp(podesol1.y[0,0], z0)*np.sin(podesol1.y[0,0])) - np.abs(sf.npp(podesol1.y[0, -1], podesol1.y[1, -1])*np.sin(podesol1.y[0, -1])))
     if(podesol2 is not None):
         tp2 = 1e9*podesol2.y[2,-1]/speed_of_light
         ax1.plot(podesol2.t, podesol2.y[1], '--', color='orange', label=str(z0))
-        tmptab[j, 6] , tmptab[j, 7] = podesol2.y[0,0], tp2
+        tmptab[j, 8] , tmptab[j, 9], tmptab[j,10] = podesol2.y[0,0], tp2, np.abs(np.abs(sf.npp(podesol1.y[0,0], z0)*np.sin(podesol1.y[0,0])) - np.abs(sf.npp(podesol1.y[0, -1], podesol1.y[1, -1])*np.sin(podesol1.y[0, -1])))
     
-    sodesol1 = sf.get_ray(sf.objfn, sf.sodes, initialangle(zm, z0), rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    sodesol2 = sf.get_ray(sf.objfn, sf.sodes, np.pi/2-np.arctan((-zm-z0)/rmax), rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    sodesol1 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
+    sodesol2 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 
     if(sodesol1 is not None):
         ts1 = 1e9*sodesol1.y[2,-1]/speed_of_light
         ax2.plot(sodesol1.t, sodesol1.y[1], 'b-', label = str(z0))
-        tmptab[j, 2] , tmptab[j, 3] = sodesol1.y[0,0], ts1
+        tmptab[j, 3] , tmptab[j, 4], tmptab[j,5] = sodesol1.y[0,0], ts1, np.abs(np.abs(sf.no(z0)*np.sin(sodesol1.y[0,0])) - np.abs(sf.no(sodesol1.y[1, -1])*np.sin(sodesol1.y[0, -1])))
     if(sodesol2 is not None):
         ts2 = 1e9*sodesol2.y[2,-1]/speed_of_light
         ax2.plot(sodesol2.t, sodesol2.y[1], '--', color='orange', label = str(z0))
-        tmptab[j, 8] , tmptab[j, 9] = sodesol2.y[0,0], ts2
+        tmptab[j, 11] , tmptab[j, 12], tmptab[j,13] = sodesol2.y[0,0], ts2, np.abs(np.abs(sf.no(z0)*np.sin(sodesol1.y[0,0])) - np.abs(sf.no(sodesol1.y[1, -1])*np.sin(sodesol1.y[0, -1])))
 
     if(podesol1 is not None and sodesol1 is not None):
-        tmptab[j, 4], tmptab[j,5] = podesol1.y[0,0] - sodesol1.y[0,0], tp1-ts1
+        tmptab[j, 6], tmptab[j,7] = podesol1.y[0,0] - sodesol1.y[0,0], tp1-ts1
     if(podesol2 is not None and sodesol2 is not None):
-        tmptab[j, 10], tmptab[j, 11] = podesol2.y[0,0] - sodesol2.y[0,0], tp2-ts2
+        tmptab[j, 14], tmptab[j, 15] = podesol2.y[0,0] - sodesol2.y[0,0], tp2-ts2
 
 #plt.title('blues = p-waves, oranges = s-waves, cont = '+str(cont))
 ax2.set_title('s-waves, distance = '+str(rmax) +' cont = '+str(cont))
@@ -123,7 +123,7 @@ fig1.savefig('pwavesweep'+str(cont).replace('.','')+'.png', dpi=600)
 
 #tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p launch', 't_p [ns]', 's launch', 't_s [ns]', 'p-s delta launch', 'p-s delta t [ns]'])
 
-tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p1 launch', 'p1 travel time [ns]', 's1 launch', 's1 travel time [ns]', 'p-s delta launch 1', 'p-s delta t 1 [ns]', 'p2 launch', 'p2 travel time [ns]', 's2 launch', 's2 travel time [ns]', 'p-s delta launch 2', 'p-s delta t 2 [ns]'])
+tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p1 launch', 'p1 travel time [ns]', 'p1 d(n sin(angle))', 's1 launch', 's1 travel time [ns]', 's1 d(n sin(angle))', 'p-s delta launch 1', 'p-s delta t 1 [ns]', 'p2 launch', 'p2 travel time [ns]', 'p2 d(n sin(angle))', 's2 launch', 's2 travel time [ns]', 's2 d(n sin(angle))', 'p-s delta launch 2', 'p-s delta t 2 [ns]'])
 tab.to_csv('snells_uniaxial_data'+str(cont).replace('.','')+'.csv')
 
 #plt.savefig('snell_uniaxial_sweep_'+str(cont).replace('.','')+'.png', dpi=600)

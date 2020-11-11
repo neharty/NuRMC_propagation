@@ -59,7 +59,6 @@ def notmp(z):
     if z < -d:
         return a + b*np.exp(z*c)
 
-
 def eps(z):
     # epsilon is diagonal
     return np.diag([(no(z))**2, (no(z))**2, (nz(z))**2])
@@ -102,21 +101,36 @@ def dnsdz(z):
     return dnodz(z)
 
 def npp(theta, z):
-    #p-polarizatoin index of refraction
-    return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
+    #p-polarization index of refraction
+    n = lambda theta, z: no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
 
+    n1 = n(theta,-d)
+    
+    if z >= 0:
+        return 1
+    if np.abs(z) <= d:
+        return (n2-n1)*z/(2*d) + (n2+n1)/2
+    if z < 0:
+        return n(theta, z)
+    
 def dnpdtheta(theta, z):
     #partial of np w.r.t. theta
-    if z >= -d:
+    dn = lambda theta, z: no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
+    
+    dn1 = dn(theta, -d)
+
+    if z > d:
         return 0
+    if np.abs(z) <= d:
+        return -dn1*z/(2*d) + dn1/2
     if z < -d:
-        return no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
+        return dn(theta, z)
 
 def dnpdz(theta, z):
     #partial of np w.r.t. z
-    a = nd
-    b = nss - nd
-    n1 = a + b*np.exp(-d*c)
+    n = lambda theta, z: no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
+    
+    n1 = n(theta,-d)
 
     if z > d:
         return 0
@@ -152,7 +166,7 @@ def initialangle(zd, z0):
     if zd-z0 >= 0:
         return np.pi/2 - np.arctan((zd-z0)/rmax)
 
-def get_ray(minfn, odefn, mininit, rmax, z0, zm, dr, a, b):
+def get_ray(minfn, odefn, rmax, z0, zm, dr, a, b):
     lb, rb = get_bounds(a, b, odefn, rmax, z0, zm, dr)
     if(lb == None and rb == None):
         return None
