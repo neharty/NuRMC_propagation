@@ -15,8 +15,8 @@ c = 0.0132
 
 #sim model parameters
 d = 1
-cont = 0.9
-n2 = 1
+cont = 0.999
+n2 = 1e-2
 
 def nz(z):
     # z index of refraction function
@@ -177,6 +177,17 @@ def get_ray(minfn, odefn, rmax, z0, zm, dr, a, b):
     odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
     return odesol
 
+def get_ray_1guess(minfn, odefn, rmax, z0, zm, dr, boundguess):
+    lb, rb = get_bounds_1guess(boundguess, odefn, rmax, z0, zm, dr)
+    if(lb == None and rb == None):
+        return None, None
+    else:
+        minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
+
+    print(minsol.converged, minsol.flag)
+    odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
+    return odesol, rb
+
 def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr, xtol = None, maxiter=None):
 
     if(rightguess <= leftguess):
@@ -242,3 +253,37 @@ def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr, xtol = None, maxi
 
     print('returned bounds:', lb, rb)
     return lb, rb
+
+def get_bounds_1guess(initguess, odefn, rmax, z0, zm, dr, xtol = None, maxiter=None):
+
+    if xtol != None:
+        xtol = xtol
+    else:
+        xtol=1e-4
+
+    if maxiter != None:
+        maxiter = maxiter
+    else:
+        maxiter=200
+
+    dxi=1e-2
+    dx = dxi
+    zendintl = objfn(initguess, odefn, rmax, z0, zm, dr)
+    zendnew = zendintl
+    inum = 0
+    lastguess = initguess
+    newguess = lastguess
+    while np.sign(zendintl) == np.sign(zendnew) and newguess <= np.pi:
+        lastguess = newguess
+        newguess += dx
+        zendnew = objfn(newguess, odefn, rmax, z0, zm, dr)
+    
+    if newguess > np.pi:
+        print('ERROR: no interval found')
+        return None, None
+    else:
+        lb, rb = lastguess, newguess
+    
+    print('returned bounds:', lb, rb)
+    return lb, rb
+

@@ -33,24 +33,41 @@ dz = 10
 print(sf.cont)
 cont = sf.cont
 
-def initialangle(zd, z0):
-    if zd-z0 < 0:
-        return np.pi/4
-    if zd-z0 >= 0:
-        return np.pi/2 - np.arctan((zd-z0)/rmax)
+def pguess(z0):
+    if np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1))+0.01 < np.pi/2-np.arctan((-zm-z0)/rmax):
+        return np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1))+0.01
+    else: 
+        return np.pi/2-np.arctan((-zm-z0)/rmax)
+
+def sguess(z0):
+    if np.arcsin(1/sf.ns(z0))+0.01 < np.pi/2-np.arctan((-zm-z0)/rmax):
+        return np.arcsin(1/sf.ns(z0))+0.01
+    else: 
+        return np.pi/2-np.arctan((-zm-z0)/rmax)
 
 #example for plotting
+    
+podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, pguess(z0))#, np.pi/2-np.arctan((-zm-z0)/rmax))
+if rb is not None:
+    podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+else:
+    podesol2, rb = None, None
 
-podesol1 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), np.pi/2-np.arctan((-zm-z0)/rmax))
-podesol2 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, sguess(z0))#, np.pi/2-np.arctan((-zm-z0)/rmax))
+if rb is not None:
+    sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
+else:
+    sodesol2, rb = None, None
 
-sodesol1 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-sodesol2 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+if podesol1 is not None:
+    plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
+if sodesol1 is not None:
+    plt.plot(sodesol1.t, sodesol1.y[1], '--', label = 's1-wave')
+if podesol2 is not None:
+    plt.plot(podesol2.t, podesol2.y[1], label = 'p2-wave')
+if sodesol2 is not None:
+    plt.plot(sodesol2.t, sodesol2.y[1], '--', label = 's2-wave')
 
-plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
-plt.plot(podesol2.t, podesol2.y[1], label = 'p2-wave')
-plt.plot(sodesol1.t, sodesol1.y[1], '--', label = 's1-wave')
-plt.plot(sodesol2.t, sodesol2.y[1], '--', label = 's2-wave')
 plt.plot(rmax, zm, 'D', label = 'antenna')
 plt.plot(0, z0, '*', label = 'source')
 plt.title('contrast = '+str(cont))
@@ -61,7 +78,7 @@ plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 #plt.show()
 plt.clf()
 
-input()
+#input()
 
 #sweeping data
 datanum = 11
@@ -77,8 +94,13 @@ for j in range(len(zarr)):
     print('\ndepth: ', z0)
     
     print('inital guesses: ', np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-    podesol1 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    podesol2 = sf.get_ray(sf.objfn, sf.podes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    rb = 0
+    podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, pguess(z0))#, np.pi/2-np.arctan((-zm-z0)/rmax))
+    if rb is not None:
+        podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
+    else:
+        podesol2, rb = None, None
+
     if(podesol1 is not None):
         tp1 = 1e9*podesol1.y[2,-1]/speed_of_light
         ax1.plot(podesol1.t, podesol1.y[1], 'b-', label=str(z0))
@@ -88,8 +110,11 @@ for j in range(len(zarr)):
         ax1.plot(podesol2.t, podesol2.y[1], '--', color='orange', label=str(z0))
         tmptab[j, 8] , tmptab[j, 9], tmptab[j,10] = podesol2.y[0,0], tp2, np.abs(np.abs(sf.npp(podesol1.y[0,0], z0)*np.sin(podesol1.y[0,0])) - np.abs(sf.npp(podesol1.y[0, -1], podesol1.y[1, -1])*np.sin(podesol1.y[0, -1])))
     
-    sodesol1 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax))
-    sodesol2 = sf.get_ray(sf.objfn, sf.sodes, rmax, z0, zm, dr, np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, sguess(z0))#, np.pi/2-np.arctan((-zm-z0)/rmax))
+    if rb is not None:
+        sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
+    else:
+        sodesol2, rb = None, None
 
     if(sodesol1 is not None):
         ts1 = 1e9*sodesol1.y[2,-1]/speed_of_light
