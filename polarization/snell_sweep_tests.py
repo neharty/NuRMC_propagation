@@ -15,20 +15,35 @@ zm = -200
 dr = 10
 dz = 10
 
-angs = np.linspace(np.arcsin(1/sf.ns(z0))-0.1, np.pi/2, num=200)
+def pguess(z0):
+    if np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)) < np.pi/2-np.arctan((-zm-z0)/rmax):
+        return np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1))
+    else:
+        return np.pi/2-np.arctan((-zm-z0)/rmax)
+
+def sguess(z0):
+    if np.arcsin(1/sf.ns(z0)) < np.pi/2-np.arctan((-zm-z0)/rmax):
+        return np.arcsin(1/sf.ns(z0))
+    else:
+        return np.pi/2-np.arctan((-zm-z0)/rmax)
+
+def guess(z0):
+    return min(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), np.pi/2-np.arctan((-zm-z0)/rmax), np.arcsin(1/sf.ns(z0)))
+
+angs = np.linspace(np.arcsin(1/sf.ns(z0))-0.1, np.pi/2, num=100)
 depths = np.linspace(-100, -2000, num=5)
 zp = np.zeros(len(angs))
 zs = np.zeros(len(angs))
 ptests, stests = np.zeros(len(angs)), np.zeros(len(angs))
 
-fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True)
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=True)
 
 ctr = 0
 
 for i in range(len(angs)):
     #for j in range(len(depths)):
-        podesol = solve_ivp(sf.podes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
-        sodesol = solve_ivp(sf.sodes, [0, rmax], [angs[i], z0, 0], method='DOP853', max_step=dr)
+        podesol = solve_ivp(sf.podes, [0, rmax], [angs[i], z0, 0], method='DOP853')
+        sodesol = solve_ivp(sf.sodes, [0, rmax], [angs[i], z0, 0], method='DOP853')
         ptests[i] = np.abs(np.abs(sf.npp(angs[i], z0)*np.sin(angs[i])) - np.abs(sf.npp(podesol.y[0, -1], podesol.y[1, -1])*np.sin(podesol.y[0, -1])))
         stests[i] = np.abs(np.abs(sf.no(z0)*np.sin(angs[i])) - np.abs(sf.no(sodesol.y[1,-1])*np.sin(sodesol.y[0,-1])))
         #plt.figure(1)
@@ -83,10 +98,11 @@ ax2.hlines(0, angs[0], angs[-1], colors='r', linestyles='-')
 print('npp',sf.npp(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), z0))
 #plt.vlines([np.arctan(sf.cont/np.sqrt(sf.no(z0)**2-1))], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='m')
 
-plt.xlabel('initial ' + r'$\theta$')
-plt.ylabel('antenna depth - final depth')
-plt.title('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
-plt.legend()
+ax2.set_xlabel('initial ' + r'$\theta$')
+ax2.set_ylabel('antenna depth - final depth')
+fig.suptitle('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
+ax1.legend()
+ax2.legend()
 #plt.show()
 #plt.savefig(str(z0)+'m_depthsvtheta.png', dpi=600)
 
@@ -95,9 +111,12 @@ plt.legend()
 print('done 1st plot')
 print('p1 bounds')
 print('initals:', np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-p1lb, p1rb = sf.get_bounds_1guess(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1))+0.01, sf.podes, rmax, z0, zm, dr) 
+p1lb, p1rb = sf.get_bounds_1guess(guess(z0), sf.podes, rmax, z0, zm, dr) 
 print('p2 bounds')
-p2lb, p2rb = sf.get_bounds_1guess(p1rb, sf.podes, rmax, z0, zm, dr)
+if p1rb is not None:
+    p2lb, p2rb = sf.get_bounds_1guess(p1rb, sf.podes, rmax, z0, zm, dr)
+else:
+    p2lb, p2rb = None, None
 if p1lb is not None and p1rb is not None:
     ax1.vlines(p1lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='orange')
     ax1.vlines(p1rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
@@ -106,9 +125,12 @@ if p2lb is not None and p2rb is not None:
     ax1.vlines(p2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
 
 print('s1 bounds')
-s1lb, s1rb = sf.get_bounds_1guess(np.arcsin(1/sf.ns(z0))+0.01, sf.sodes, rmax, z0, zm, dr)
+s1lb, s1rb = sf.get_bounds_1guess(guess(z0), sf.sodes, rmax, z0, zm, dr)
 print('s2 bounds')
-s2lb, s2rb = sf.get_bounds_1guess(s1rb, sf.sodes, rmax, z0, zm, dr)
+if s1rb is not None:
+    s2lb, s2rb = sf.get_bounds_1guess(s1rb, sf.sodes, rmax, z0, zm, dr)
+else:
+    s2lb, s2rb = None, None
 if s1lb is not None and s1rb is not None: 
     ax2.vlines(s1lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='m')
     ax2.vlines(s1rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='c')
@@ -116,8 +138,7 @@ if s2lb is not None and s2rb is not None:
     ax2.vlines(s2lb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='m')
     ax2.vlines(s2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='c')
 
-plt.xlabel('initial ' + r'$\theta$')
-plt.ylabel('antenna depth - final depth')
-plt.title('radial distance = 1 km, initial depth = '+str(z0)+' m')
-plt.show()
 
+fig.tight_layout()
+plt.show()
+#fig.savefig('rootexample'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)

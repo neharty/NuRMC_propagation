@@ -3,7 +3,7 @@ from scipy.integrate import solve_ivp, simps
 import polarizationfns as pl
 import matplotlib.pyplot as plt
 import argparse
-from scipy.optimize import minimize, curve_fit, root, root_scalar
+from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResult
 import pandas as pd
 from tabulate import tabulate
 from scipy.constants import speed_of_light
@@ -14,12 +14,13 @@ nd = 1.78
 c = 0.0132
 
 #sim model parameters
-d = 1
-cont = 0.999
-n2 = 1e-2
+d = 0.01
+cont = 0.9
+n2 = 1e-6
 
 def nz(z):
     # z index of refraction function
+    '''
     a = nd
     b = nss - nd
     n1 = cont*(a + b*np.exp(-d*c))
@@ -30,12 +31,17 @@ def nz(z):
         return (n2-n1)*z/(2*d) +(n2+n1)/2
     if z < -d:
         return cont*no(z)
+    '''
+    return cont*no(z)
 
 def no(z):
     # x-y plane index of refraction function
     # from nice8 ARA model
+    
     a = nd
     b = nss - nd
+    
+    '''
     n1 = a + b*np.exp(-d*c)
 
     if  z > d:
@@ -44,11 +50,14 @@ def no(z):
         return (n2-n1)*z/(2*d) + (n2+n1)/2
     if z < -d:
         return a + b*np.exp(z*c)
+    '''
+    return a + b*np.exp(z*c)
 
 def notmp(z):
     #for calculating the bounds
     a = nd
     b = nss - nd
+    '''
     n1 = a + b*np.exp(-d*c)
     n2 = 1
 
@@ -58,6 +67,8 @@ def notmp(z):
         return (n2-n1)*z/(2*d) + (n2+n1)/2
     if z < -d:
         return a + b*np.exp(z*c)
+    '''
+    return a + b*np.exp(z*c)
 
 def eps(z):
     # epsilon is diagonal
@@ -67,6 +78,7 @@ def dnodz(z):
     #derivative of x-y index of refraction
     a = nd
     b = nss - nd
+    '''
     n1 = a + b*np.exp(-d*c)
 
     if z > d:
@@ -75,11 +87,14 @@ def dnodz(z):
         return (n2-n1)/(2*d)
     if z < -d:
         return b*c*np.exp(z*c)
+    '''
+    return b*c*np.exp(z*c)
 
 def dnzdz(z):
     #derivative of z index of refraction
     a = nd
     b = nss - nd
+    '''
     n1 = cont*(a + b*np.exp(-d*c))
 
     if z > d:
@@ -88,6 +103,8 @@ def dnzdz(z):
         return (n2-n1)/(2*d)
     if z < -d:
         return cont*dnodz(z)
+    '''
+    return cont*dnodz(z)
 
 def ns(z):
     #s-polarization index of refraction
@@ -102,8 +119,9 @@ def dnsdz(z):
 
 def npp(theta, z):
     #p-polarization index of refraction
+    '''
     n = lambda theta, z: no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
-
+    
     n1 = n(theta,-d)
     
     if z >= 0:
@@ -112,9 +130,12 @@ def npp(theta, z):
         return (n2-n1)*z/(2*d) + (n2+n1)/2
     if z < 0:
         return n(theta, z)
-    
+    '''
+    return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
+
 def dnpdtheta(theta, z):
     #partial of np w.r.t. theta
+    '''
     dn = lambda theta, z: no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
     
     dn1 = dn(theta, -d)
@@ -125,9 +146,12 @@ def dnpdtheta(theta, z):
         return -dn1*z/(2*d) + dn1/2
     if z < -d:
         return dn(theta, z)
+    '''
+    return no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
 
 def dnpdz(theta, z):
     #partial of np w.r.t. z
+    '''
     n = lambda theta, z: no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
     
     n1 = n(theta,-d)
@@ -138,27 +162,23 @@ def dnpdz(theta, z):
         return (n2-n1)/(2*d)
     if z < -d:
         return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
+    '''
+    return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
 
 def podes(t, y):
     # odes for p-polarization
-    # form is [d(theta)/dr, dzdr]
+    # form is [d(theta)/dr, dzdr, dtdr]
     return [-np.cos(y[0])*dnpdz(y[0], y[1])/(npp(y[0],y[1])*np.cos(y[0])+dnpdtheta(y[0],y[1])*np.sin(y[0])), 1/np.tan(y[0]), npp(y[0], y[1])/np.abs(np.sin(y[0]))]
 
 def sodes(t,y):
     # odes for s-polarization
-    # form is [d(theta)/dr, dzdr]
+    # form is [d(theta)/dr, dzdr, dtdr]
     return [-dnsdz(y[1])/(ns(y[1])), 1/np.tan(y[0]), ns(y[1])/np.abs(np.sin(y[0]))]
 
-def objfn(theta, ode, rmax, z0, zm, dr):
-    sol = solve_ivp(ode, [0, rmax], [theta, z0, 0], method='DOP853', max_step = dr)
+def objfn(theta, ode, event, rmax, z0, zm, dr):
+    sol = shoot_ray(ode, event, 0, rmax, theta, z0, dr)
     zsol = sol.y[1,-1]
     return zsol - zm
-
-#rmax = 1000
-#z0 = -300
-#zm = -200
-#dr = 10
-#dz = 10
 
 def initialangle(zd, z0):
     if zd-z0 < 0:
@@ -177,18 +197,35 @@ def get_ray(minfn, odefn, rmax, z0, zm, dr, a, b):
     odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
     return odesol
 
+def hit_top(t, y):
+    return y[1]
+
+def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
+    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method='DOP853', events=event, max_step=dr)
+    if len(sol.t_events[0]) == 0:
+        return sol
+    else:
+        tinit = sol.t_events[0][0]
+        thetainit = sol.y_events[0][0][0]
+        zinit = sol.y_events[0][0][1]
+        travtime = sol.y_events[0][0][2]
+        sol2 = solve_ivp(odefn, [tinit, 200], [np.pi-thetainit, zinit, travtime], method='DOP853', events=event, max_step=dr)
+        tvals = np.hstack((sol.t[sol.t < tinit], sol2.t))
+        yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < tinit])], sol2.y))
+        return OptimizeResult(t=tvals, y=yvals)
+
 def get_ray_1guess(minfn, odefn, rmax, z0, zm, dr, boundguess):
     lb, rb = get_bounds_1guess(boundguess, odefn, rmax, z0, zm, dr)
     if(lb == None and rb == None):
         return None, None
     else:
-        minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
+        minsol = root_scalar(minfn, args=(odefn, hit_top, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
 
     print(minsol.converged, minsol.flag)
-    odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
+    odesol = shoot_ray(odefn, hit_top, 0, rmax, minsol.root, z0, dr)
     return odesol, rb
 
-def get_bounds(leftguess, rightguess, odefn, rmax, z0, zm, dr, xtol = None, maxiter=None):
+def get_bounds(leftguess, rightguess, odefn, event, rmax, z0, zm, dr, xtol = None, maxiter=None):
 
     if(rightguess <= leftguess):
         tmp = rightguess
@@ -268,7 +305,7 @@ def get_bounds_1guess(initguess, odefn, rmax, z0, zm, dr, xtol = None, maxiter=N
 
     dxi=1e-2
     dx = dxi
-    zendintl = objfn(initguess, odefn, rmax, z0, zm, dr)
+    zendintl = objfn(initguess, odefn, hit_top, rmax, z0, zm, dr)
     zendnew = zendintl
     inum = 0
     lastguess = initguess
@@ -276,7 +313,7 @@ def get_bounds_1guess(initguess, odefn, rmax, z0, zm, dr, xtol = None, maxiter=N
     while np.sign(zendintl) == np.sign(zendnew) and newguess <= np.pi:
         lastguess = newguess
         newguess += dx
-        zendnew = objfn(newguess, odefn, rmax, z0, zm, dr)
+        zendnew = objfn(newguess, odefn, hit_top, rmax, z0, zm, dr)
     
     if newguess > np.pi:
         print('ERROR: no interval found')
