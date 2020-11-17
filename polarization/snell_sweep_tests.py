@@ -10,7 +10,7 @@ from scipy.constants import speed_of_light
 import snell_fns as sf
 
 rmax = 1000
-z0 = -1200
+z0 = -500
 zm = -200
 dr = 10
 dz = 10
@@ -30,76 +30,50 @@ def sguess(z0):
 def guess(z0):
     return min(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), np.pi/2-np.arctan((-zm-z0)/rmax), np.arcsin(1/sf.ns(z0)))
 
-angs = np.linspace(np.arcsin(1/sf.ns(z0))-0.1, np.pi/2, num=100)
+angs = np.linspace(np.arcsin(1/sf.ns(z0))-0.1, np.pi/2, num=200)
 depths = np.linspace(-100, -2000, num=5)
 zp = np.zeros(len(angs))
 zs = np.zeros(len(angs))
 ptests, stests = np.zeros(len(angs)), np.zeros(len(angs))
 
-fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=True)
-
-ctr = 0
+# shooting different ray plots
+fig1, ax1 = plt.subplots()
+fig2, ax2 = plt.subplots()
 
 for i in range(len(angs)):
-    #for j in range(len(depths)):
-        podesol = solve_ivp(sf.podes, [0, rmax], [angs[i], z0, 0], method='DOP853')
-        sodesol = solve_ivp(sf.sodes, [0, rmax], [angs[i], z0, 0], method='DOP853')
-        ptests[i] = np.abs(np.abs(sf.npp(angs[i], z0)*np.sin(angs[i])) - np.abs(sf.npp(podesol.y[0, -1], podesol.y[1, -1])*np.sin(podesol.y[0, -1])))
-        stests[i] = np.abs(np.abs(sf.no(z0)*np.sin(angs[i])) - np.abs(sf.no(sodesol.y[1,-1])*np.sin(sodesol.y[0,-1])))
-        #plt.figure(1)
-        #plt.plot(podesol.t, podesol.y[1])
-        #plt.plot
-        '''
-        if angs[i] > np.arcsin(sf.nss/sf.no(z0)):
-            #refracted
-            ax1.plot(sodesol.t, sodesol.y[1])
-            ctr += 1
-        elif angs[i] < np.arcsin(sf.nss/sf.no(z0)) and angs[i] >= np.arcsin(1/sf.no(z0)):
-            #reflected
-            ax2.plot(sodesol.t, sodesol.y[1])
-            ctr += 1
-        else:
-            ax3.plot(sodesol.t, sodesol.y[1])
-        '''
-        '''
-        if angs[i] > np.arctan(sf.nss*sf.cont/np.sqrt(sf.cont**2*sf.no(z0)**2-sf.nss**2)):
-            #refracted
-            ax1.plot(sodesol.t, sodesol.y[1])
-            ctr += 1
-        elif angs[i] < np.arcsin(sf.nss/sf.no(z0)) and angs[i] >= np.arcsin(1/sf.no(z0)):
-            #reflected
-            ax2.plot(sodesol.t, sodesol.y[1])
-            ctr += 1
-        else:
-            ax3.plot(sodesol.t, sodesol.y[1])
-        '''
+    podesol = sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, angs[i], z0, dr)
+    sodesol = sf.shoot_ray(sf.sodes, sf.hit_top, 0, rmax, angs[i], z0, dr)
+    ptests[i] = np.abs(np.abs(sf.npp(angs[i], z0)*np.sin(angs[i])) - np.abs(sf.npp(podesol.y[0, -1], podesol.y[1, -1])*np.sin(podesol.y[0, -1])))
+    stests[i] = np.abs(np.abs(sf.no(z0)*np.sin(angs[i])) - np.abs(sf.no(sodesol.y[1,-1])*np.sin(sodesol.y[0,-1])))
+    
+    ax1.plot(podesol.t, podesol.y[1])
+    ax2.plot(sodesol.t, sodesol.y[1])
 
-        zp[i], zs[i] = podesol.y[1, -1], sodesol.y[1,-1]
-'''
-print('all plotted?', ctr == len(angs), ctr)
-#plt.show()
-plt.clf()
+    zp[i], zs[i] = podesol.y[1, -1], sodesol.y[1,-1]
 
-plt.semilogy(angs, ptests, label='p')
-plt.semilogy(angs, stests, label='s')
-#plt.vlines([np.arcsin(1/(sf.ns(z0)))], min(min(ptests), min(stests)), max(max(ptests), max(stests)), colors='k')
-plt.legend()
-#plt.show()
-plt.clf()
-print(np.max(ptests), np.max(stests))
-'''
+ax1.set_xlabel('radial distance [m]')
+ax1.set_ylabel('depth [m]')
+fig1.suptitle('p waves')
+ax1.set_title('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
+fig1.tight_layout()
+fig1.savefig('p-raysweep'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
 
-ax1.plot(angs, zp-zm,'-', label='p-waves')
-ax2.plot(angs, zs-zm, '-', label='s-waves')
-ax1.hlines(0, angs[0], angs[-1], colors='r', linestyles='-')
-ax2.hlines(0, angs[0], angs[-1], colors='r', linestyles='-')
-#plt.vlines([np.arcsin(1/(sf.ns(z0))), np.arcsin(sf.nss/sf.ns(z0))], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='k')
-#plt.vlines([np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.no(z0)**2 - 1)), np.arctan(sf.cont*sf.nss/np.sqrt(sf.cont**2*sf.no(z0)**2 - sf.nss**2))], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
+ax2.set_xlabel('radial distance')
+ax2.set_ylabel('depth [m]')
+fig2.suptitle('s waves')
+ax2.set_title('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
+fig2.tight_layout()
+fig1.savefig('p-raysweep'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
+
+# theta vs final depth plot
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=True)
+
+ax1.plot(angs, zp,'-', label='p-waves')
+ax2.plot(angs, zs, '-', label='s-waves')
+ax1.hlines(zm, angs[0], angs[-1], colors='r', linestyles='-', label='antenna depth')
+ax2.hlines(zm, angs[0], angs[-1], colors='r', linestyles='-', label= 'antenna depth')
 print('npp',sf.npp(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), z0))
-#plt.vlines([np.arctan(sf.cont/np.sqrt(sf.no(z0)**2-1))], min(min(zp), min(zs)), max(max(zp), max(zs)), colors='m')
 
-ax2.set_xlabel('initial ' + r'$\theta$')
-ax2.set_ylabel('antenna depth - final depth')
 fig.suptitle('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
 ax1.legend()
 ax2.legend()
@@ -110,8 +84,8 @@ ax2.legend()
 
 print('done 1st plot')
 print('p1 bounds')
-print('initals:', np.arcsin(1/sf.ns(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
-p1lb, p1rb = sf.get_bounds_1guess(guess(z0), sf.podes, rmax, z0, zm, dr) 
+p1lb, p1rb = sf.get_bounds_1guess(0.1, sf.podes, rmax, z0, zm, dr)
+print(sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, p1lb, z0, dr).y[1,-1], sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, p1rb, z0, dr).y[1,-1], sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, (p1rb+p1lb)/2, z0, dr).y[1,-1])
 print('p2 bounds')
 if p1rb is not None:
     p2lb, p2rb = sf.get_bounds_1guess(p1rb, sf.podes, rmax, z0, zm, dr)
@@ -125,7 +99,7 @@ if p2lb is not None and p2rb is not None:
     ax1.vlines(p2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='g')
 
 print('s1 bounds')
-s1lb, s1rb = sf.get_bounds_1guess(guess(z0), sf.sodes, rmax, z0, zm, dr)
+s1lb, s1rb = sf.get_bounds_1guess(0.1, sf.sodes, rmax, z0, zm, dr)
 print('s2 bounds')
 if s1rb is not None:
     s2lb, s2rb = sf.get_bounds_1guess(s1rb, sf.sodes, rmax, z0, zm, dr)
@@ -139,6 +113,6 @@ if s2lb is not None and s2rb is not None:
     ax2.vlines(s2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='c')
 
 
-fig.tight_layout()
-plt.show()
-#fig.savefig('rootexample'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
+#fig.tight_layout()
+#plt.show()
+fig.savefig('rootexample'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
