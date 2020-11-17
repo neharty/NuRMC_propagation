@@ -10,7 +10,7 @@ from scipy.constants import speed_of_light
 import snell_fns as sf
 
 rmax = 1000
-z0 = -500
+z0 = -1400
 zm = -200
 dr = 10
 dz = 10
@@ -30,7 +30,7 @@ def sguess(z0):
 def guess(z0):
     return min(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), np.pi/2-np.arctan((-zm-z0)/rmax), np.arcsin(1/sf.ns(z0)))
 
-angs = np.linspace(np.arcsin(1/sf.ns(z0))-0.1, np.pi/2, num=200)
+angs = np.linspace(np.arcsin(1/sf.ns(z0))-0.1, np.pi/2, num=20)
 depths = np.linspace(-100, -2000, num=5)
 zp = np.zeros(len(angs))
 zs = np.zeros(len(angs))
@@ -53,18 +53,16 @@ for i in range(len(angs)):
 
 ax1.set_xlabel('radial distance [m]')
 ax1.set_ylabel('depth [m]')
-fig1.suptitle('p waves')
-ax1.set_title('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
+ax1.set_title('p-waves\nradial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
 fig1.tight_layout()
 fig1.savefig('p-raysweep'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
 
 ax2.set_xlabel('radial distance')
 ax2.set_ylabel('depth [m]')
-fig2.suptitle('s waves')
-ax2.set_title('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
+ax2.set_title('s-waves\nradial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
 fig2.tight_layout()
-fig1.savefig('p-raysweep'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
-
+fig2.savefig('s-raysweep'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
+'''
 # theta vs final depth plot
 fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=True)
 
@@ -76,7 +74,10 @@ print('npp',sf.npp(np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)), z0))
 
 fig.suptitle('radial distance = 1 km, initial depth = '+str(z0)+' m, contrast = ' + str(sf.cont))
 ax1.legend()
+ax1.set_ylabel('ray depth at 1 km')
+ax2.set_xlabel('initial angle')
 ax2.legend()
+
 #plt.show()
 #plt.savefig(str(z0)+'m_depthsvtheta.png', dpi=600)
 
@@ -85,7 +86,7 @@ ax2.legend()
 print('done 1st plot')
 print('p1 bounds')
 p1lb, p1rb = sf.get_bounds_1guess(0.1, sf.podes, rmax, z0, zm, dr)
-print(sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, p1lb, z0, dr).y[1,-1], sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, p1rb, z0, dr).y[1,-1], sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, (p1rb+p1lb)/2, z0, dr).y[1,-1])
+#print(sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, p1lb, z0, dr).y[1,-1], sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, p1rb, z0, dr).y[1,-1], sf.shoot_ray(sf.podes, sf.hit_top, 0, rmax, (p1rb+p1lb)/2, z0, dr).y[1,-1])
 print('p2 bounds')
 if p1rb is not None:
     p2lb, p2rb = sf.get_bounds_1guess(p1rb, sf.podes, rmax, z0, zm, dr)
@@ -113,6 +114,7 @@ if s2lb is not None and s2rb is not None:
     ax2.vlines(s2rb, min(min(zp), min(zs)), max(max(zp), max(zs)), colors='c')
 
 
-#fig.tight_layout()
+fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 #plt.show()
 fig.savefig('rootexample'+str(z0)+'_'+str(sf.cont).replace('.','')+'.png', dpi = 600)
+'''
