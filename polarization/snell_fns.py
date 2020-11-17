@@ -15,7 +15,7 @@ c = 0.0132
 
 #sim model parameters
 d = 0.01
-cont = 0.9
+cont = 0.999
 n2 = 1e-6
 
 def nz(z):
@@ -209,7 +209,7 @@ def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
         thetainit = sol.y_events[0][0][0]
         zinit = sol.y_events[0][0][1]
         travtime = sol.y_events[0][0][2]
-        sol2 = solve_ivp(odefn, [tinit, 200], [np.pi-thetainit, zinit, travtime], method='DOP853', events=event, max_step=dr)
+        sol2 = solve_ivp(odefn, [tinit, rmax], [np.pi-thetainit, zinit, travtime], method='DOP853', events=event, max_step=dr)
         tvals = np.hstack((sol.t[sol.t < tinit], sol2.t))
         yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < tinit])], sol2.y))
         return OptimizeResult(t=tvals, y=yvals)

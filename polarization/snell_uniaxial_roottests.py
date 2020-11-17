@@ -26,7 +26,7 @@ parser.add_argument('z0', type=float,
 '''
 
 rmax = 1000
-z0 = -1000
+z0 = -300
 zm = -200
 dr = 10
 dz = 10
@@ -78,8 +78,8 @@ plt.title('contrast = '+str(cont))
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
-#plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
-plt.show()
+plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
+#plt.show()
 plt.clf()
 
 #input()
@@ -99,7 +99,7 @@ for j in range(len(zarr)):
     
     #print('inital guesses: ', np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     rb = 0
-    podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess(z0))#, np.pi/2-np.arctan((-zm-z0)/rmax))
+    podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, 0.1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
     if rb is not None:
         podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
     else:
@@ -114,7 +114,7 @@ for j in range(len(zarr)):
         ax1.plot(podesol2.t, podesol2.y[1], '--', color='orange', label=str(z0))
         tmptab[j, 8] , tmptab[j, 9], tmptab[j,10] = podesol2.y[0,0], tp2, np.abs(np.abs(sf.npp(podesol1.y[0,0], z0)*np.sin(podesol1.y[0,0])) - np.abs(sf.npp(podesol1.y[0, -1], podesol1.y[1, -1])*np.sin(podesol1.y[0, -1])))
     
-    sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess(z0))#, np.pi/2-np.arctan((-zm-z0)/rmax))
+    sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, 0.1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
     if rb is not None:
         sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
     else:
