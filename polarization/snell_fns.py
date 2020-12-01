@@ -15,7 +15,7 @@ c = 0.0132
 
 #sim model parameters
 d = 0.01
-cont = 0.9
+cont = None
 n2 = 1e-6
 
 def nz(z):

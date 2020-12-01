@@ -8,9 +8,14 @@ import pandas as pd
 from tabulate import tabulate
 from scipy.constants import speed_of_light
 import snell_fns as sf
+import time
 
+parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
+parser.add_argument('cont', type=float,
+                   help='contrast in n_e from n_o')
+
+args = parser.parse_args()
 '''
-parser = argparse.ArgumentParser(description='compare snells law ODE with just the regular one')
 parser.add_argument('dl', type=float,
                    help='determines fixed track length differential size')
 parser.add_argument('theta0', type=float,
@@ -24,6 +29,7 @@ parser.add_argument('z0', type=float,
 #theta0 = args.theta0
 #z0 = args.z0
 '''
+sf.cont = args.cont
 
 rmax = 1000
 z0 = -300
@@ -88,7 +94,7 @@ plt.clf()
 datanum = 11
 zarr = np.linspace(0, -2000, num=datanum)
 #tab = pd.DataFrame(index=zarr, columns=['p1 launch', 'p1 travel time [ns]', 's1 launch', 's1 travel time [ns]', 'p-s delta launch 1', 'p-s delta t 1 [ns]', 'p2 launch', 'p2 travel time [ns]', 's2 launch', 's2 travel time [ns]', 'p-s delta launch 2', 'p-s delta t 2 [ns]'])
-tmptab = np.zeros((datanum, 16))
+tmptab = np.zeros((datanum, 18))
 
 fig1, ax1 = plt.subplots()
 fig2, ax2 = plt.subplots()
@@ -99,11 +105,14 @@ for j in range(len(zarr)):
     
     #print('inital guesses: ', np.arcsin(1/sf.nstmp(z0)), np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
     rb = 0
+
+    ptime = time.time()
     podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, 0.1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
     if rb is not None:
         podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
     else:
         podesol2, rb = None, None
+    ptime = time.time() - ptime
 
     if(podesol1 is not None):
         tp1 = 1e9*podesol1.y[2,-1]/speed_of_light
@@ -114,11 +123,15 @@ for j in range(len(zarr)):
         ax1.plot(podesol2.t, podesol2.y[1], '--', color='orange', label=str(z0))
         tmptab[j, 8] , tmptab[j, 9], tmptab[j,10] = podesol2.y[0,0], tp2, np.abs(np.abs(sf.npp(podesol1.y[0,0], z0)*np.sin(podesol1.y[0,0])) - np.abs(sf.npp(podesol1.y[0, -1], podesol1.y[1, -1])*np.sin(podesol1.y[0, -1])))
     
+    tmptab[j, 16] = ptime
+    
+    stime = time.time()
     sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, 0.1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
     if rb is not None:
         sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
     else:
         sodesol2, rb = None, None
+    stime = time.time() - stime
 
     if(sodesol1 is not None):
         ts1 = 1e9*sodesol1.y[2,-1]/speed_of_light
@@ -128,6 +141,8 @@ for j in range(len(zarr)):
         ts2 = 1e9*sodesol2.y[2,-1]/speed_of_light
         ax2.plot(sodesol2.t, sodesol2.y[1], '--', color='orange', label = str(z0))
         tmptab[j, 11] , tmptab[j, 12], tmptab[j,13] = sodesol2.y[0,0], ts2, np.abs(np.abs(sf.no(z0)*np.sin(sodesol1.y[0,0])) - np.abs(sf.no(sodesol1.y[1, -1])*np.sin(sodesol1.y[0, -1])))
+    
+    tmptab[j,17] = stime
 
     if(podesol1 is not None and sodesol1 is not None):
         tmptab[j, 6], tmptab[j,7] = podesol1.y[0,0] - sodesol1.y[0,0], tp1-ts1
@@ -152,7 +167,7 @@ fig1.savefig('pwavesweep'+str(cont).replace('.','')+'.png', dpi=600)
 
 #tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p launch', 't_p [ns]', 's launch', 't_s [ns]', 'p-s delta launch', 'p-s delta t [ns]'])
 
-tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p1 launch', 'p1 travel time [ns]', 'p1 d(n sin(angle))', 's1 launch', 's1 travel time [ns]', 's1 d(n sin(angle))', 'p-s delta launch 1', 'p-s delta t 1 [ns]', 'p2 launch', 'p2 travel time [ns]', 'p2 d(n sin(angle))', 's2 launch', 's2 travel time [ns]', 's2 d(n sin(angle))', 'p-s delta launch 2', 'p-s delta t 2 [ns]'])
+tab = pd.DataFrame(data=tmptab, index=zarr, columns=['p1 launch', 'p1 travel time [ns]', 'p1 d(n sin(angle))', 's1 launch', 's1 travel time [ns]', 's1 d(n sin(angle))', 'p-s delta launch 1', 'p-s delta t 1 [ns]', 'p2 launch', 'p2 travel time [ns]', 'p2 d(n sin(angle))', 's2 launch', 's2 travel time [ns]', 's2 d(n sin(angle))', 'p-s delta launch 2', 'p-s delta t 2 [ns]', 'p comp time', 's comp time'])
 tab.to_csv('snells_uniaxial_data'+str(cont).replace('.','')+'.csv')
 
 #plt.savefig('snell_uniaxial_sweep_'+str(cont).replace('.','')+'.png', dpi=600)
