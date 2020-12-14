@@ -27,5 +27,5 @@ fig, (ax1, ax2) = plt.subplots(nrows = 2, ncols = 1)
 sol = solve_ivp(sodes, [0, rmax], [theta0, z0, 0], method='LSODA', max_step=0.1)
 
 ax1.plot(sol.t, sol.y[1])
-ax2.plot(sol.t, 2*np.pi*sol.y[2])
+ax2.plot(sol.t, sol.y[2])
 plt.show()

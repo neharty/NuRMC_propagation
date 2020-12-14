@@ -7,14 +7,16 @@ from scipy.optimize import minimize, curve_fit, root, root_scalar
 import pandas as pd
 from tabulate import tabulate
 from scipy.constants import speed_of_light
-import snell_fns as sf
+#import snell_fns as sf
+import snell_fns_x as sf
 import time
-
+'''
 parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
 parser.add_argument('cont', type=float,
                    help='contrast in n_e from n_o')
 
 args = parser.parse_args()
+'''
 '''
 parser.add_argument('dl', type=float,
                    help='determines fixed track length differential size')
@@ -29,7 +31,9 @@ parser.add_argument('z0', type=float,
 #theta0 = args.theta0
 #z0 = args.z0
 '''
-sf.cont = args.cont
+#sf.cont = args.cont
+sf.cont = 0.99
+sf.phi = np.pi/4
 
 rmax = 1000
 z0 = -300
@@ -85,10 +89,10 @@ plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
 plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
-#plt.show()
-plt.clf()
+plt.show()
+#plt.clf()
 
-#input()
+input()
 
 #sweeping data
 datanum = 11
