@@ -17,7 +17,6 @@ c = 0.0132
 d = 0.01
 cont = None
 n2 = 1e-6
-phi = None
 
 def nz(z):
     # z index of refraction function
@@ -29,6 +28,7 @@ def no(z):
     
     a = nd
     b = nss - nd
+    
     return a + b*np.exp(z*c)
 
 def notmp(z):
@@ -39,7 +39,7 @@ def notmp(z):
 
 def eps(z):
     # epsilon is diagonal
-    return np.diag([(nz(z))**2, (no(z))**2, (no(z))**2])
+    return np.diag([(no(z))**2, (no(z))**2, (nz(z))**2])
 
 def dnodz(z):
     #derivative of x-y index of refraction
@@ -66,30 +66,25 @@ def dnsdz(z):
 
 def npp(theta, z):
     #p-polarization index of refraction
-    #return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
-    return no(z)*nz(z)/np.sqrt((nz(z)**2*np.cos(phi)**2*np.sin(theta)**2+no(z)**2*(np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2)))
+    return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
 
 def dnpdtheta(theta, z):
     #partial of np w.r.t. theta
-    #return no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
-    #return np.cos(phi)**2*np.cos(theta)*np.sin(theta)*nz(z)*no(z)*((2*(np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*no(z)**2)-((np.cos(theta)**2 - np.cos(2*phi)*np.sin(theta)**2)*nz(z)**2))/(((np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*(np.cos(phi)**2*np.sin(theta)**2*nz(z)**2 + (np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*no(z)**2))**1.5)
-    return - (np.cos(phi)**2*np.cos(theta)*nz(z)*no(z)*(nz(z)**2 - no(z)**2))/((nz(z)**2*np.cos(phi)**2*np.sin(theta)**2+no(z)**2*(np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2))**1.5)
+    return no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
 
 def dnpdz(theta, z):
     #partial of np w.r.t. z
-    #return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
-    #return ((np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*no(z)**3*dnzdz(z) + np.cos(phi)**2*np.sin(theta)**2*nz(z)**3*dnodz(z))/(np.sqrt(np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*((np.cos(phi)**2*np.sin(theta)**2*nz(z)**2 + (np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*no(z)**2)**1.5))
-    return ((np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2)*no(z)**3*dnzdz(z) + np.cos(phi)**2*np.sin(theta)**2*nz(z)**3*dnodz(z))/((nz(z)**2*np.cos(phi)**2*np.sin(theta)**2+no(z)**2*(np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2))**1.5)    
+    return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
 
 def podes(t, y):
     # odes for p-polarization
-    # form is [d(theta)/dr, dzdr, dtdr]
-    return [-np.cos(y[0])*dnpdz(y[0], y[1])/(npp(y[0],y[1])*np.cos(y[0])+dnpdtheta(y[0],y[1])*np.sin(y[0])), 1/np.tan(y[0]), npp(y[0], y[1])/np.abs(np.sin(y[0]))]
+    # form is [d(theta)/ds, dzds, dtds, drds]
+    return [-np.sin(y[0])*np.cos(y[0])*dnpdz(y[0], y[1])/(npp(y[0],y[1])*np.cos(y[0])+dnpdtheta(y[0],y[1])*np.sin(y[0])), np.cos(y[0]), npp(y[0], y[1]), np.sin(y[1])]
 
 def sodes(t,y):
     # odes for s-polarization
-    # form is [d(theta)/dr, dzdr, dtdr]
-    return [-dnsdz(y[1])/(ns(y[1])), 1/np.tan(y[0]), ns(y[1])/np.abs(np.sin(y[0]))]
+    # form is [d(theta)/ds, dzds, dtds, drds]
+    return [-np.sin(y[0])*dnsdz(y[1])/(ns(y[1])), np.cos(y[0]), ns(y[1]), np.sin(y[0])]
 
 def objfn(theta, ode, event, rmax, z0, zm, dr):
     sol = shoot_ray(ode, event, 0, rmax, theta, z0, dr)
@@ -116,11 +111,10 @@ def get_ray(minfn, odefn, rmax, z0, zm, dr, a, b):
 def hit_top(t, y):
     return y[1]
 
-def hit_bot(t, y):
-    return np.abs(y[1]) - 2800
+def hit_bot(t,y):
+    return y[1] - 3000
 
 def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
-    #event format must be in 
     sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method='DOP853', events=event, max_step=dr)
     if len(sol.t_events[0]) == 0:
         return sol
@@ -139,10 +133,10 @@ def get_ray_1guess(minfn, odefn, rmax, z0, zm, dr, boundguess):
     if(lb == None and rb == None):
         return None, None
     else:
-        minsol = root_scalar(minfn, args=(odefn, hit_bot, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
+        minsol = root_scalar(minfn, args=(odefn, hit_top, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
 
     print(minsol.converged, minsol.flag)
-    odesol = shoot_ray(odefn, hit_bot, 0, rmax, minsol.root, z0, dr)
+    odesol = shoot_ray(odefn, hit_top, 0, rmax, minsol.root, z0, dr)
     return odesol, rb
 
 def get_bounds(leftguess, rightguess, odefn, event, rmax, z0, zm, dr, xtol = None, maxiter=None):

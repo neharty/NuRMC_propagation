@@ -20,18 +20,6 @@ n2 = 1e-6
 
 def nz(z):
     # z index of refraction function
-    '''
-    a = nd
-    b = nss - nd
-    n1 = cont*(a + b*np.exp(-d*c))
-
-    if  z > d:
-        return 1
-    if np.abs(z) <= d:
-        return (n2-n1)*z/(2*d) +(n2+n1)/2
-    if z < -d:
-        return cont*no(z)
-    '''
     return cont*no(z)
 
 def no(z):
@@ -41,33 +29,12 @@ def no(z):
     a = nd
     b = nss - nd
     
-    '''
-    n1 = a + b*np.exp(-d*c)
-
-    if  z > d:
-        return 1
-    if np.abs(z) <= d:
-        return (n2-n1)*z/(2*d) + (n2+n1)/2
-    if z < -d:
-        return a + b*np.exp(z*c)
-    '''
     return a + b*np.exp(z*c)
 
 def notmp(z):
     #for calculating the bounds
     a = nd
     b = nss - nd
-    '''
-    n1 = a + b*np.exp(-d*c)
-    n2 = 1
-
-    if  z > d:
-        return 1
-    if np.abs(z) <= d:
-        return (n2-n1)*z/(2*d) + (n2+n1)/2
-    if z < -d:
-        return a + b*np.exp(z*c)
-    '''
     return a + b*np.exp(z*c)
 
 def eps(z):
@@ -78,32 +45,12 @@ def dnodz(z):
     #derivative of x-y index of refraction
     a = nd
     b = nss - nd
-    '''
-    n1 = a + b*np.exp(-d*c)
-
-    if z > d:
-        return 0
-    if np.abs(z) <= d:
-        return (n2-n1)/(2*d)
-    if z < -d:
-        return b*c*np.exp(z*c)
-    '''
     return b*c*np.exp(z*c)
 
 def dnzdz(z):
     #derivative of z index of refraction
     a = nd
     b = nss - nd
-    '''
-    n1 = cont*(a + b*np.exp(-d*c))
-
-    if z > d:
-        return 0
-    if np.abs(z) <= d:
-        return (n2-n1)/(2*d)
-    if z < -d:
-        return cont*dnodz(z)
-    '''
     return cont*dnodz(z)
 
 def ns(z):
@@ -119,50 +66,14 @@ def dnsdz(z):
 
 def npp(theta, z):
     #p-polarization index of refraction
-    '''
-    n = lambda theta, z: no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
-    
-    n1 = n(theta,-d)
-    
-    if z >= 0:
-        return 1
-    if np.abs(z) <= d:
-        return (n2-n1)*z/(2*d) + (n2+n1)/2
-    if z < 0:
-        return n(theta, z)
-    '''
     return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
 
 def dnpdtheta(theta, z):
     #partial of np w.r.t. theta
-    '''
-    dn = lambda theta, z: no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
-    
-    dn1 = dn(theta, -d)
-
-    if z > d:
-        return 0
-    if np.abs(z) <= d:
-        return -dn1*z/(2*d) + dn1/2
-    if z < -d:
-        return dn(theta, z)
-    '''
     return no(z)*nz(z)*np.sin(theta)*np.cos(theta)*(nz(z)**2-no(z)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
 
 def dnpdz(theta, z):
     #partial of np w.r.t. z
-    '''
-    n = lambda theta, z: no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
-    
-    n1 = n(theta,-d)
-
-    if z > d:
-        return 0
-    if np.abs(z) <= d:
-        return (n2-n1)/(2*d)
-    if z < -d:
-        return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
-    '''
     return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
 
 def podes(t, y):

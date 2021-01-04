@@ -7,9 +7,13 @@ from scipy.optimize import minimize, curve_fit, root, root_scalar
 import pandas as pd
 from tabulate import tabulate
 from scipy.constants import speed_of_light
+import sys
 #import snell_fns as sf
-import snell_fns_x as sf
+#import snell_fns_x as sf
 import time
+
+import snell_prop_fns as sf
+
 '''
 parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
 parser.add_argument('cont', type=float,
@@ -32,16 +36,18 @@ parser.add_argument('z0', type=float,
 #z0 = args.z0
 '''
 #sf.cont = args.cont
-sf.cont = 0.99
-sf.phi = np.pi/4
+sf.cont = 0.999
+#sf.phi = np.pi/4
 
-rmax = 1000
-z0 = -300
-zm = -200
+rmax = 100
+z0 = -5
+zm = -5
 dr = 10
 dz = 10
 print(sf.cont)
 cont = sf.cont
+
+events = (sf.hit_top, sf.hit_bot)
 
 def pguess(z0):
     if np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1))+0.01 < np.pi/2-np.arctan((-zm-z0)/rmax):
@@ -59,16 +65,18 @@ def guess(z0):
     return min(np.pi/2-np.arctan((-zm-z0)/rmax), np.arcsin(1/sf.ns(z0)), np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1)))
 
 #example for plotting
-    
-podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, 0.1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
+
+rguess = np.pi/2 + 0.01
+
+podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, events, rmax, z0, zm, dr, rguess)#, np.pi/2-np.arctan((-zm-z0)/rmax))
 if rb is not None:
-    podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
+    podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, events, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax), np.pi/2-np.arctan((zm-z0)/rmax))
 else:
     podesol2, rb = None, None
 
-sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, 0.1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
+sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, events, rmax, z0, zm, dr, rguess)#, np.pi/2-np.arctan((-zm-z0)/rmax))
 if rb is not None:
-    sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
+    sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, events, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
 else:
     sodesol2, rb = None, None
 
@@ -88,9 +96,9 @@ plt.title('contrast = '+str(cont))
 plt.xlabel('r')
 plt.ylabel('z')
 plt.legend()
-plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
+#plt.savefig('snells_uniaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 plt.show()
-#plt.clf()
+plt.clf()
 
 input()
 

@@ -9,6 +9,7 @@ from tabulate import tabulate
 from scipy.constants import speed_of_light
 #import snell_fns as sf
 import snell_fns_x as sf
+#import snell_fns_arclen_x as sf
 import time
 '''
 parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
@@ -34,9 +35,9 @@ parser.add_argument('z0', type=float,
 #sf.cont = args.cont
 sf.cont = 1.001
 
-rmax = 3500
-z0 = -1400
-zm = -200
+rmax = 50
+z0 = -1
+zm = -1
 dr = 10
 dz = 10
 print(sf.cont)
@@ -44,10 +45,11 @@ cont = sf.cont
 
 #sweeping data
 datanum = 11
-phiarr = np.linspace(0, np.pi/2, num=datanum)
+#phiarr = np.linspace(0, np.pi/2, num=datanum)
+phiarr = np.array([-np.pi/6, -np.pi/3, 0, np.pi/6, np.pi/3, np.pi/2])
 tmptab = np.zeros((datanum, 6))
 
-rguess = 1
+rguess = np.pi/2 + 0.01
 
 for j in range(len(phiarr)):
     sf.phi = phiarr[j]
@@ -97,7 +99,7 @@ for j in range(len(phiarr)):
     print(ts1, tp1, ts1 - tp1)
     print(ts2, tp2, ts2 - tp2)
     
-    '''
+    
     plt.legend()
     plt.show()
     plt.clf()
@@ -107,10 +109,10 @@ for j in range(len(phiarr)):
     plt.plot(sodesol2.t, sodesol2.y[2])
     plt.show()
     plt.clf()
-    '''
+    
 
 tab = pd.DataFrame(data=tmptab, index=phiarr, columns=['p1 travel time [ns]', 's1 travel time [ns]', 'p-s delta t 1 [ns]', 'p2 travel time [ns]', 's2 travel time [ns]', 'p-s delta t 2 [ns]'])
-tab.to_csv('ARA_times_d'+str(np.abs(z0))+'_xb'+str(rmax)+'_c'+str(cont).replace('.','')+'.csv')
+tab.to_csv('bot_echo_times_d'+str(np.abs(z0))+'_xb'+str(rmax)+'_c'+str(cont).replace('.','')+'.csv')
 
 #plt.savefig('snell_uniaxial_sweep_'+str(cont).replace('.','')+'.png', dpi=600)
 '''

@@ -79,17 +79,17 @@ def dnpdz(theta, z):
     #partial of np w.r.t. z
     #return (no(z)**3*dnzdz(z)*np.sin(theta)**2+dnodz(z)*nz(z)**3*np.cos(theta)**2)/(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
     #return ((np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*no(z)**3*dnzdz(z) + np.cos(phi)**2*np.sin(theta)**2*nz(z)**3*dnodz(z))/(np.sqrt(np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*((np.cos(phi)**2*np.sin(theta)**2*nz(z)**2 + (np.cos(theta)**2+np.sin(phi)**2*np.sin(theta)**2)*no(z)**2)**1.5))
-    return ((np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2)*no(z)**3*dnzdz(z) + np.cos(phi)**2*np.sin(theta)**2*nz(z)**3*dnodz(z))/((nz(z)**2*np.cos(phi)**2*np.sin(theta)**2+no(z)**2*(np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2))**1.5)    
+    return ((np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2)*no(z)**3*dnzdz(z) + np.cos(phi)**2*np.sin(theta)**2*nz(z)**3*dnodz(z))/((nz(z)**2*np.cos(phi)**2*np.sin(theta)**2+no(z)**2*(np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2))**1.5)
 
 def podes(t, y):
     # odes for p-polarization
-    # form is [d(theta)/dr, dzdr, dtdr]
-    return [-np.cos(y[0])*dnpdz(y[0], y[1])/(npp(y[0],y[1])*np.cos(y[0])+dnpdtheta(y[0],y[1])*np.sin(y[0])), 1/np.tan(y[0]), npp(y[0], y[1])/np.abs(np.sin(y[0]))]
+    # form is [d(theta)/ds, dzds, dtds, drds]
+    return [-np.sin(y[0])*np.cos(y[0])*dnpdz(y[0], y[1])/(npp(y[0],y[1])*np.cos(y[0])+dnpdtheta(y[0],y[1])*np.sin(y[0])), np.cos(y[0]), npp(y[0], y[1]), np.sin(y[1])]
 
 def sodes(t,y):
     # odes for s-polarization
-    # form is [d(theta)/dr, dzdr, dtdr]
-    return [-dnsdz(y[1])/(ns(y[1])), 1/np.tan(y[0]), ns(y[1])/np.abs(np.sin(y[0]))]
+    # form is [d(theta)/ds, dzds, dtds, drds]
+    return [-np.sin(y[0])*dnsdz(y[1])/(ns(y[1])), np.cos(y[0]), ns(y[1]), np.sin(y[0])]
 
 def objfn(theta, ode, event, rmax, z0, zm, dr):
     sol = shoot_ray(ode, event, 0, rmax, theta, z0, dr)
@@ -110,18 +110,17 @@ def get_ray(minfn, odefn, rmax, z0, zm, dr, a, b):
         minsol = root_scalar(minfn, args=(odefn, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
 
     print(minsol.converged, minsol.flag)
-    odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0], method='DOP853', max_step=dr)
+    odesol = solve_ivp(odefn, [0, rmax], [minsol.root, z0, 0, 0], method='DOP853', max_step=dr)
     return odesol
 
 def hit_top(t, y):
     return y[1]
 
-def hit_bot(t, y):
-    return np.abs(y[1]) - 2800
+def hit_bot(t,y):
+    return y[1] - 3000
 
 def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
-    #event format must be in 
-    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method='DOP853', events=event, max_step=dr)
+    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0, 0], method='DOP853', events=event, max_step=dr)
     if len(sol.t_events[0]) == 0:
         return sol
     else:
@@ -142,7 +141,7 @@ def get_ray_1guess(minfn, odefn, rmax, z0, zm, dr, boundguess):
         minsol = root_scalar(minfn, args=(odefn, hit_bot, rmax, z0, zm, dr), bracket=[lb,rb])#, options={'xtol':1e-12, 'rtol':1e-12, 'maxiter':int(1e4)})
 
     print(minsol.converged, minsol.flag)
-    odesol = shoot_ray(odefn, hit_bot, 0, rmax, minsol.root, z0, dr)
+    odesol = shoot_ray(odefn, hit_top, 0, rmax, minsol.root, z0, dr)
     return odesol, rb
 
 def get_bounds(leftguess, rightguess, odefn, event, rmax, z0, zm, dr, xtol = None, maxiter=None):
