@@ -36,18 +36,19 @@ parser.add_argument('z0', type=float,
 #z0 = args.z0
 '''
 #sf.cont = args.cont
-sf.cont = 0.999
+sf.cont = 0.9
 #sf.phi = np.pi/4
 
-rmax = 100
-z0 = -5
-zm = -5
+rmax = 1000
+z0 = -500
+zm = -200
 dr = 10
 dz = 10
 print(sf.cont)
 cont = sf.cont
 
-events = (sf.hit_top, sf.hit_bot)
+#events = (sf.hit_top, sf.hit_bot)
+events = sf.hit_top
 
 def pguess(z0):
     if np.arctan(sf.cont/np.sqrt(sf.cont**2*sf.ns(z0)**2 - 1))+0.01 < np.pi/2-np.arctan((-zm-z0)/rmax):
@@ -66,7 +67,7 @@ def guess(z0):
 
 #example for plotting
 
-rguess = np.pi/2 + 0.01
+rguess = 1
 
 podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, events, rmax, z0, zm, dr, rguess)#, np.pi/2-np.arctan((-zm-z0)/rmax))
 if rb is not None:

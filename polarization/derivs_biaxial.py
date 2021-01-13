@@ -14,63 +14,72 @@ nd = 1.78
 c = 0.0132
 
 #sim model parameters
-d = 0.01
 cont = None
-n2 = 1e-6
 
 def n1(z):
-    # z index of refraction function
+    # x index of refraction function
     # extraordinary index of refraction function
-    return cont*no(z)
-
-def n2(z):
-    return n3(z)
-
-def n3(z):
-    # ordinary index of refraction fn
-    # x-y plane index of refraction function
     # from nice8 ARA model
-    
+
     a = nd
     b = nss - nd
-    
+
     return a + b*np.exp(z*c)
+
+def n2(z):
+    # y index of refraction function
+    #same as n1 for testing
+
+    return n1(z)
+
+def n3(z):
+    # z index of refraction fn
+    return cont*n1(z)
 
 def eps(z):
     # epsilon is diagonal
-    return np.diag([(no(z))**2, (no(z))**2, (nz(z))**2])
+    return np.diag([(n1(z))**2, (n2(z))**2, (n3(z))**2])
 
-def dnodz(z):
-    #derivative of x-y index of refraction
-    a = nd
-    b = nss - nd
-    return b*c*np.exp(z*c)
+def khat(phi, theta):
+    #phi = angle from +x axis
+    #theta = angle from +z axis
+    return np.array([np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)])
 
-def dnedz(z):
-    #derivative of z index of refraction
-    a = nd
-    b = nss - nd
-    return cont*dnodz(z)
+def adjeps(z):
+    return np.diag(np.array([n2(z)*n3(z), n1(z)*n3(z), n1(z)*n2(z)])**2)
 
-def ns(z):
+def A(z, phi, theta):
+    #return khat(phi, theta) @ eps(z) @ khat(phi, theta)
+    return n1(z)**2*np.cos(phi)**2*np.sin(theta)**2 + n2(z)**2*np.sin(phi)**2*np.sin(theta)**2 + n3(z)**2*np.cos(theta)**2
+    
+
+def B(z, phi, theta):
+    #return khat(phi, theta) @ (adjeps(z) - np.trace(adjeps(z))*np.eye(3)) @ khat(phi, theta) 
+    return ((n1(z)**2*n3(z)**2 + n1(z)**2*n2(z)**2)*np.cos(phi)**2*np.sin(theta)**2 + (n2(z)**2*n3(z)**2 + n1(z)**2*n2(z)**2)*np.sin(phi)**2*np.sin(theta)**2 + (n2(z)**2*n3(z)**2 + n1(z)**2*n3(z)**2)*np.cos(theta)**2)
+
+def C(z, phi, theta):
+    return (n1(z)*n2(z)*n3(z))**2
+
+def ns(z, phi, theta):
     #s-polarization index of refraction
-    return no(z)
+    #if B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta) < 0:
+        #return 1
+    #else:
+    return np.sqrt((B(z,phi,theta) + np.sqrt(B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)))/(2*A(z,phi,theta)))
+    #return n1(z)
 
-def nstmp(z):
-    return notmp(z)
-
-def dnsdz(z):
-    #derivative of s-polarization index of refraction
-    return dnodz(z)
-
-def npp(theta, z):
+def npp(z, phi, theta):
     #p-polarization index of refraction
-    return no(z)*ne(z)/np.sqrt(ne(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
+    #if (B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)) < 0:
+    #    return 1
+    #else:
+    return np.sqrt((B(z,phi,theta) - np.sqrt(B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)))/(2*A(z,phi,theta)))
+    #return np.sqrt(C(z, phi, theta)/(A(z, phi, theta)*ns(z, phi, theta)))
+    #return n1(z)*n3(z)/np.sqrt(n3(z)**2*np.cos(theta)**2+n1(z)**2*np.sin(theta)**2)
 
-def dnpdtheta(theta, z):
-    #partial of np w.r.t. theta
-    return no(z)*ne(z)*np.sin(theta)*np.cos(theta)*(ne(z)**2-no(z)**2)/(ne(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
+def zderiv(z, phi, theta, n, h=1e-11):
+    return (n(z + h, phi, theta) - n(z-h, phi, theta))/(2*h)
 
-def dnpdz(theta, z):
-    #partial of np w.r.t. z
-    return (no(z)**3*dnedz(z)*np.sin(theta)**2+dnodz(z)*ne(z)**3*np.cos(theta)**2)/(ne(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
+def thetaderiv(z, phi, theta, n, h=1e-11):
+    return (n(z, phi, theta + h) - n(z, phi, theta - h))/(2*h)
+
