@@ -65,7 +65,13 @@ def ns(z, phi, theta):
     #if B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta) < 0:
         #return 1
     #else:
-    return np.sqrt((B(z,phi,theta) + np.sqrt(B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)))/(2*A(z,phi,theta)))
+    #print(B(z,phi,theta)**2, 4*A(z,phi,theta)*C(z,phi,theta), B(z,phi,theta)**2 - 4*A(z,phi,theta)*C(z,phi,theta))
+    #return np.sqrt((B(z,phi,theta) + np.sqrt(B(z,phi,theta)**2 - 4*A(z,phi,theta)*C(z,phi,theta)))/(2*A(z,phi,theta)))
+    #discr = (B(z, phi, theta)**2/4*A(z, phi, theta)**2) - (C(z, phi, theta)/A(z,phi,theta))
+    #discr = (B(z, phi, theta) - 2*np.sqrt(A(z, phi, theta)*C(z, phi, theta)))*(B(z, phi, theta) + 2*np.sqrt(A(z, phi, theta)*C(z, phi, theta)))
+    #discr = 1e-6
+    discr = 0
+    return np.sqrt((B(z, phi, theta) + np.sqrt(discr))/(2*A(z, phi, theta)))
     #return n1(z)
 
 def npp(z, phi, theta):
@@ -73,8 +79,8 @@ def npp(z, phi, theta):
     #if (B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)) < 0:
     #    return 1
     #else:
-    return np.sqrt((B(z,phi,theta) - np.sqrt(B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)))/(2*A(z,phi,theta)))
-    #return np.sqrt(C(z, phi, theta)/(A(z, phi, theta)*ns(z, phi, theta)))
+    #return np.sqrt((B(z,phi,theta) - np.sqrt(B(z,phi,theta)*B(z,phi,theta) - 4*A(z,phi,theta)*C(z,phi,theta)))/(2*A(z,phi,theta)))
+    return np.sqrt(C(z, phi, theta)/(A(z, phi, theta)))/ns(z, phi, theta)
     #return n1(z)*n3(z)/np.sqrt(n3(z)**2*np.cos(theta)**2+n1(z)**2*np.sin(theta)**2)
 
 def zderiv(z, phi, theta, n, h=1e-11):
@@ -82,4 +88,14 @@ def zderiv(z, phi, theta, n, h=1e-11):
 
 def thetaderiv(z, phi, theta, n, h=1e-11):
     return (n(z, phi, theta + h) - n(z, phi, theta - h))/(2*h)
+
+
+#for testing against actual values
+def ns_a(z, phi, theta):
+    return n1(z)
+
+def npp_a(z, phi, theta):
+    return n1(z)*n3(z)/np.sqrt(n3(z)**2*np.cos(theta)**2+n1(z)**2*np.sin(theta)**2)
+
+
 

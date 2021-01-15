@@ -12,13 +12,23 @@ import importlib
 #derivfile  = str(input('Enter derivatives file: '))
 #dv = importlib.import_module(derivfile)
 
-cont = 0.999
+cont = 0.9
 
 import derivs_biaxial as dv
 
 dv.cont = cont
 
 phi = np.random.random()*2*np.pi
+
+def podes_a(t, y, param='r'):
+    # odes for p-polarization
+    
+    # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
+    return [-np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.npp_a)/(dv.npp_a(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1],phi, y[0], dv.npp_a)*np.sin(y[0])), 1/np.tan(y[0]), dv.npp_a(y[1], phi, y[0])/np.abs(np.sin(y[0]))]
+
+def sodes_a(t, y, param='r'):
+    # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
+    return [-np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.ns_a)/(dv.ns_a(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1],phi, y[0], dv.ns_a)*np.sin(y[0])), 1/np.tan(y[0]), dv.ns_a(y[1], phi, y[0])/np.abs(np.sin(y[0]))]
 
 def podes(t, y, param='r'):
     # odes for p-polarization
@@ -53,8 +63,9 @@ def hit_bot(t, y):
     return np.abs(y[1]) - 2800
 
 def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
-    solver = 'RK23'
-    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method=solver, events=event)#, max_step=dr)
+    solver = 'DOP853'
+    dense_output = True
+    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method=solver, events=event, max_step=dr, atol = [1e-3, 1e-2, 1e-6])
     if len(sol.t_events[0]) == 0:
         return sol
     else:
@@ -62,7 +73,7 @@ def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
         thetainit = sol.y_events[0][0][0]
         #zinit = sol.y_events[0][0][1]
         travtime = sol.y_events[0][0][2]
-        sol2 = solve_ivp(odefn, [tinit, rmax], [np.pi-thetainit, 0, travtime], method=solver)#, max_step=dr)
+        sol2 = solve_ivp(odefn, [tinit, rmax], [np.pi-thetainit, 0, travtime], method=solver, max_step=dr, atol = [1e-3, 1e-2, 1e-6])
         tvals = np.hstack((sol.t[sol.t < tinit], sol2.t))
         yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < tinit])], sol2.y))
         return OptimizeResult(t=tvals, y=yvals) 

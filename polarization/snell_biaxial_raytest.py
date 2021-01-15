@@ -4,6 +4,7 @@ import polarizationfns as pl
 import matplotlib.pyplot as plt
 import argparse
 from scipy.optimize import minimize, curve_fit, root, root_scalar
+from scipy.interpolate import interp1d
 import pandas as pd
 from tabulate import tabulate
 from scipy.constants import speed_of_light
@@ -36,7 +37,7 @@ parser.add_argument('z0', type=float,
 #z0 = args.z0
 '''
 
-sf.cont = 0.999
+sf.cont = 0.9
 
 rmax = 1000
 z0 = -300
@@ -50,6 +51,7 @@ events = sf.hit_top
 
 rguess = 0.1
 
+# from general quadratic formula
 podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rguess)
 if rb is not None:
     podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)
@@ -62,6 +64,19 @@ if rb is not None:
 else:
     sodesol2, rb = None, None
 
+# from analytic solns
+podesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, rguess)
+if rb is not None:
+    podesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, rb)
+else:
+    podesol2_a, rb = None, None
+
+sodesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, rguess)
+if rb is not None:
+    sodesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, rb)
+else:
+    sodesol2_a, rb = None, None
+'''
 if podesol1 is not None:
     plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
 if sodesol1 is not None:
@@ -80,4 +95,17 @@ plt.legend()
 #plt.savefig('snells_biaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 plt.show()
 plt.clf()
+'''
+p1a = interp1d(podesol1_a.t, podesol1_a.y[1], 'cubic')
+print('p1', max(np.abs(podesol1.y[1] - p1a(podesol1.t))))
+
+p2a = interp1d(podesol2_a.t, podesol2_a.y[1], 'cubic')
+print('p2', max(np.abs(podesol2.y[1] - p1a(podesol2.t))))
+
+s1a = interp1d(sodesol1_a.t, sodesol1_a.y[1], 'cubic')
+print('s1', max(np.abs(sodesol1.y[1] - s1a(sodesol1.t))))
+
+s2a = interp1d(sodesol2_a.t, sodesol2_a.y[1], 'cubic')
+print('s2', max(np.abs(sodesol2.y[1] - s2a(sodesol2.t))))
+
 
