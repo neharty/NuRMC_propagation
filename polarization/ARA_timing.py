@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.optimize import minimize, curve_fit, root, root_scalar
 import pandas as pd
-from tabulate import tabulate
 from scipy.constants import speed_of_light
 #import snell_fns as sf
-import snell_fns_x as sf
+import snell_prop_fns as sf
+import derivs_xext as dv
 import time
 '''
 parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
@@ -32,22 +32,35 @@ parser.add_argument('z0', type=float,
 #z0 = args.z0
 '''
 #sf.cont = args.cont
-sf.cont = 1.001
+#sf.cont = 1.001
 
-rmax = 3500
+rmax = 3200
 z0 = -1400
 zm = -200
 dr = 10
 dz = 10
-print(sf.cont)
-cont = sf.cont
+#print(sf.cont)
+#cont = sf.cont
 
 #sweeping data
 datanum = 11
 phiarr = np.linspace(0, np.pi/2, num=datanum)
 tmptab = np.zeros((datanum, 6))
 
-rguess = 1
+grazang = np.arcsin(np.trace(np.sqrt(dv.eps(0)))/(np.trace(np.sqrt(dv.eps(z0)))))
+#dzg = sf.objfn(grazang, ode, rmax, z0, zm, dr)
+
+directang = np.arctan(rmax/(np.abs(z0)-np.abs(zm)))
+#dzd = sf.objfn(directang, ode, rmax, z0, zm, dr)
+
+mirrorang = np.arctan(rmax/(np.abs(z0)+np.abs(zm)))
+#dzm = sf.objfn(mirrorang, ode, rmax, z0, zm, dr)
+
+#sortangs = np.sort(np.abs(np.array([grazang, directang, mirrorang]) - zm))
+
+guess1 = min([grazang, directang, mirrorang])
+
+guess2 = max([grazang, directang, mirrorang])
 
 for j in range(len(phiarr)):
     sf.phi = phiarr[j]
@@ -56,9 +69,9 @@ for j in range(len(phiarr)):
     rb = 0
 
     ptime = time.time()
-    podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rguess)
+    podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess1)
     if rb is not None:
-        podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)
+        podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess2)
     else:
         podesol2, rb = None, None
     ptime = time.time() - ptime
@@ -73,9 +86,9 @@ for j in range(len(phiarr)):
         plt.plot(podesol2.t, podesol2.y[1], label='p2')
     
     stime = time.time()
-    sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rguess)#, np.pi/2-np.arctan((-zm-z0)/rmax))
+    sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess1)#, np.pi/2-np.arctan((-zm-z0)/rmax))
     if rb is not None:
-        sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
+        sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess2)#np.pi/2-np.arctan((-zm-z0)/rmax))#, np.pi/2-np.arctan((zm-z0)/rmax))
     else:
         sodesol2, rb = None, None
     stime = time.time() - stime
@@ -110,7 +123,7 @@ for j in range(len(phiarr)):
     '''
 
 tab = pd.DataFrame(data=tmptab, index=phiarr, columns=['p1 travel time [ns]', 's1 travel time [ns]', 'p-s delta t 1 [ns]', 'p2 travel time [ns]', 's2 travel time [ns]', 'p-s delta t 2 [ns]'])
-tab.to_csv('ARA_times_d'+str(np.abs(z0))+'_xb'+str(rmax)+'_c'+str(cont).replace('.','')+'.csv')
+tab.to_csv('ARA_times_zcont1_d'+str(np.abs(z0))+'_xb'+str(rmax)+'.csv')
 
 #plt.savefig('snell_uniaxial_sweep_'+str(cont).replace('.','')+'.png', dpi=600)
 '''

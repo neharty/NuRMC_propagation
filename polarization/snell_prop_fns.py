@@ -5,20 +5,15 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResult
 import pandas as pd
-from tabulate import tabulate
 from scipy.constants import speed_of_light
 import importlib
 
 #derivfile  = str(input('Enter derivatives file: '))
 #dv = importlib.import_module(derivfile)
 
-cont = 0.9
+import derivs_xext as dv
 
-import derivs_biaxial as dv
-
-dv.cont = cont
-
-phi = np.random.random()*2*np.pi
+phi = None
 
 def podes_a(t, y, param='r'):
     # odes for p-polarization
@@ -48,12 +43,6 @@ def sodes(t, y, param='r'):
         # form is [d(theta)/ds, dzds, dtds, drds]
         return [-np.sin(y[0])*np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.ns)/(dv.ns(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1], phi, y[0], dv.npp)*np.sin(y[0])), np.cos(y[0]), dv.ns(y[1], phi, y[0]), np.sin(y[0])]
 
-def objfn(theta, ode, rmax, z0, zm, dr):
-    #function for rootfinder
-    sol = shoot_ray(ode, hit_top, 0, rmax, theta, z0, dr)
-    zsol = sol.y[1,-1]
-    return zsol - zm
-
 def hit_top(t, y):
     return y[1]
 
@@ -65,7 +54,7 @@ def hit_bot(t, y):
 def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
     solver = 'DOP853'
     dense_output = True
-    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method=solver, events=event, max_step=dr, atol = [1e-3, 1e-2, 1e-6])
+    sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method=solver, events=event, max_step=dr)#, atol = [1e-3, 1e-2, 1e-6])
     if len(sol.t_events[0]) == 0:
         return sol
     else:
@@ -73,10 +62,16 @@ def shoot_ray(odefn, event, rinit, rmax, theta0,  z0, dr):
         thetainit = sol.y_events[0][0][0]
         #zinit = sol.y_events[0][0][1]
         travtime = sol.y_events[0][0][2]
-        sol2 = solve_ivp(odefn, [tinit, rmax], [np.pi-thetainit, 0, travtime], method=solver, max_step=dr, atol = [1e-3, 1e-2, 1e-6])
+        sol2 = solve_ivp(odefn, [tinit, rmax], [np.pi-thetainit, 0, travtime], method=solver, max_step=dr)#, atol = [1e-3, 1e-2, 1e-6])
         tvals = np.hstack((sol.t[sol.t < tinit], sol2.t))
         yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < tinit])], sol2.y))
         return OptimizeResult(t=tvals, y=yvals) 
+
+def objfn(theta, ode, rmax, z0, zm, dr):
+    #function for rootfinder
+    sol = shoot_ray(ode, hit_top, 0, rmax, theta, z0, dr)
+    zsol = sol.y[1,-1]
+    return zsol - zm
 
 def get_ray_1guess(minfn, odefn, rmax, z0, zm, dr, boundguess): 
     lb, rb = get_bounds_1guess(boundguess, odefn, rmax, z0, zm, dr)
@@ -90,7 +85,7 @@ def get_ray_1guess(minfn, odefn, rmax, z0, zm, dr, boundguess):
     return odesol, rb
 
 def get_bounds_1guess(initguess, odefn, rmax, z0, zm, dr, odeparam = 'r', xtol = None, maxiter=None):
-
+    
     if xtol != None:
         xtol = xtol
     else:
@@ -106,21 +101,28 @@ def get_bounds_1guess(initguess, odefn, rmax, z0, zm, dr, odeparam = 'r', xtol =
     dxi=1e-2
     dx = dxi
     zendintl = objfn(initguess, odefn, rmax, z0, zm, dr)
+    dz = np.sign(zendintl)
+    grad = np.sign(objfn(initguess+dx, odefn, rmax, z0, zm, dr) - zendintl)
+    print(dz, grad)
     zendnew = zendintl
     inum = 0
     lastguess = initguess
     newguess = lastguess
-    while np.sign(zendintl) == np.sign(zendnew) and newguess <= np.pi:
+    while dz == np.sign(zendnew) and newguess < np.pi and newguess > 0:
         lastguess = newguess
-        newguess += dx
+        if (dz > 0 and grad > 0) or (dz < 0 and grad < 0):
+            newguess -= dx
+        if (dz > 0 and grad < 0) or (dz < 0 and grad > 0):
+            newguess += dx
         zendnew = objfn(newguess, odefn, rmax, z0, zm, dr)
-
-    if newguess > np.pi:
+    
+    if newguess >= np.pi or newguess <= 0:
         print('ERROR: no interval found')
+        print(np.sign(zendintl))
         return None, None
     else:
         lb, rb = lastguess, newguess
 
-    print('returned bounds:', lb, rb)
+    print('initial guess:', initguess, 'returned bounds:', lb, rb)
     return lb, rb
 

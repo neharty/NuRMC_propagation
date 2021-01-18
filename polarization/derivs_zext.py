@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResult
 import pandas as pd
-from tabulate import tabulate
 from scipy.constants import speed_of_light
 
 # ice parameters
@@ -14,14 +13,32 @@ nd = 1.78
 c = 0.0132
 
 #sim model parameters
-d = 0.01
-cont = None
-n2 = 1e-6
+
+fl = pd.read_csv('epsdata/evals_vs_depth.csv')
+depth = np.array(fl['Nominal Depth'])
+
+eperp = 3.157
+deltae = 0.034
+
+#puts eigenvals in same coords as jordan et al.
+n3, n2, n1 = np.sqrt(eperp + np.array(fl['E1'])*deltae), np.sqrt(eperp + np.array(fl['E2'])*deltae), np.sqrt(eperp + np.array(fl['E3'])*deltae)
+
+n2n3avg = (n2+n3)/2
+z0 = depth[0]
+
+def test_func(z, a,b,c):
+    return a + b/(1+np.exp(-c*(z-z0)))
+
+p0 = [min(n2n3avg-n1), max(n2n3avg-n1), 1]
+
+params1, p = curve_fit(test_func, depth, n2n3avg - n1, p0, method='dogbox')
+
+cont = lambda z: 1-test_func(z, *params1)
 
 def ne(z):
     # z index of refraction function
     # extraordinary index of refraction function
-    return cont*no(z)
+    return cont(z)*no(z)
 
 def no(z):
     # ordinary index of refraction fn
@@ -53,9 +70,6 @@ def ns(z):
     #s-polarization index of refraction
     return no(z)
 
-def nstmp(z):
-    return notmp(z)
-
 def dnsdz(z):
     #derivative of s-polarization index of refraction
     return dnodz(z)
@@ -71,3 +85,15 @@ def dnpdtheta(theta, z):
 def dnpdz(theta, z):
     #partial of np w.r.t. z
     return (no(z)**3*dnedz(z)*np.sin(theta)**2+dnodz(z)*ne(z)**3*np.cos(theta)**2)/(ne(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)**1.5
+
+def npp(z):
+    return ne(z)
+
+def ns(z):
+    return no(z)
+
+def zderiv(z, phi, theta, n, h=1e-11):
+    return (n(z + h, phi, theta) - n(z-h, phi, theta))/(2*h)
+
+def thetaderiv(z, phi, theta, n, h=1e-11):
+    return (n(z, phi, theta + h) - n(z, phi, theta - h))/(2*h)

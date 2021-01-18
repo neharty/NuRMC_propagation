@@ -6,7 +6,6 @@ import argparse
 from scipy.optimize import minimize, curve_fit, root, root_scalar
 from scipy.interpolate import interp1d
 import pandas as pd
-from tabulate import tabulate
 from scipy.constants import speed_of_light
 import sys
 #import snell_fns as sf
@@ -14,6 +13,7 @@ import sys
 import time
 
 import snell_prop_fns as sf
+import derivs_biaxial as dv
 
 '''
 parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
@@ -49,34 +49,48 @@ cont = sf.cont
 
 events = sf.hit_top
 
-rguess = 0.1
+grazang = np.arcsin(np.trace(np.sqrt(dv.eps(0)))/(np.trace(np.sqrt(dv.eps(z0)))))
+#dzg = sf.objfn(grazang, ode, rmax, z0, zm, dr)
+
+directang = np.arctan(rmax/(np.abs(z0)-np.abs(zm)))
+#dzd = sf.objfn(directang, ode, rmax, z0, zm, dr)
+
+mirrorang = np.arctan(rmax/(np.abs(z0)+np.abs(zm)))
+#dzm = sf.objfn(mirrorang, ode, rmax, z0, zm, dr)
+
+#sortangs = np.sort(np.abs(np.array([grazang, directang, mirrorang]) - zm))
+
+guess1 = min([grazang, directang, mirrorang])
+
+guess2 = max([grazang, directang, mirrorang])
 
 # from general quadratic formula
-podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rguess)
+
+podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess1)
 if rb is not None:
-    podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, rb)
+    podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess2)
 else:
     podesol2, rb = None, None
 
-sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rguess)
+sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess1)
 if rb is not None:
-    sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, rb)
+    sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess2)
 else:
     sodesol2, rb = None, None
 
 # from analytic solns
-podesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, rguess)
+podesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, guess1)
 if rb is not None:
-    podesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, rb)
+    podesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, guess2)
 else:
     podesol2_a, rb = None, None
 
-sodesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, rguess)
+sodesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, guess1)
 if rb is not None:
-    sodesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, rb)
+    sodesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, guess2)
 else:
     sodesol2_a, rb = None, None
-'''
+
 if podesol1 is not None:
     plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
 if sodesol1 is not None:
@@ -95,12 +109,12 @@ plt.legend()
 #plt.savefig('snells_biaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 plt.show()
 plt.clf()
-'''
+
 p1a = interp1d(podesol1_a.t, podesol1_a.y[1], 'cubic')
 print('p1', max(np.abs(podesol1.y[1] - p1a(podesol1.t))))
 
 p2a = interp1d(podesol2_a.t, podesol2_a.y[1], 'cubic')
-print('p2', max(np.abs(podesol2.y[1] - p1a(podesol2.t))))
+print('p2', max(np.abs(podesol2.y[1] - p2a(podesol2.t))))
 
 s1a = interp1d(sodesol1_a.t, sodesol1_a.y[1], 'cubic')
 print('s1', max(np.abs(sodesol1.y[1] - s1a(sodesol1.t))))

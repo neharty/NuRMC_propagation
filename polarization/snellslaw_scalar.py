@@ -26,6 +26,8 @@ n2 = 0
 '''
 
 def n(z):
+    if z>100:
+        print(z)
     return 1
 
 def dndz(z):
@@ -37,23 +39,25 @@ def odes(t, y):
 def hit_top(t, y):
     return y[1]-100
 
+hit_top.terminal=True
+
 def get_ray(odefn, event):
     sol=solve_ivp(odes, [0, 200], [np.pi/4, 0], method='LSODA', events=event)
     if sol.t_events == None:
         return sol
     else:
         tinit = sol.t_events[0][0]
-        print(tinit)
+        #print(tinit)
         thetainit = sol.y_events[0][0][0]
-        print(thetainit)
+        #print(thetainit)
         zinit = sol.y_events[0][0][1]
-        print(np.pi-thetainit, zinit)
+        #print(np.pi-thetainit, zinit)
         sol2 = solve_ivp(odes, [tinit, 200], [np.pi-thetainit, zinit], method='LSODA', events=event)
         tvals = np.hstack((sol.t[sol.t < tinit], sol2.t))
         #print(tvals)
-        print(sol2.y)
+        #print(sol2.y)
         yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < tinit])], sol2.y))
-        print(yvals)
+        #print(yvals)
         return OptimizeResult(t=tvals, y=yvals)
 
 sol = get_ray(odes, hit_top)
