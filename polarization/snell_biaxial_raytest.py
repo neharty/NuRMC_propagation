@@ -37,10 +37,10 @@ parser.add_argument('z0', type=float,
 #z0 = args.z0
 '''
 
-sf.cont = 0.9
+sf.cont = 0.99
 
 rmax = 1000
-z0 = -300
+z0 = -1000
 zm = -200
 dr = 10
 dz = 10
@@ -66,31 +66,31 @@ guess2 = max([grazang, directang, mirrorang])
 
 # from general quadratic formula
 
-podesol1, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess1)
+podesol1, rb = sf.get_ray_1guess(sf.objfn, dv.odefns, rmax, z0, zm, dr, 1,guess1)
 if rb is not None:
-    podesol2, rb = sf.get_ray_1guess(sf.objfn, sf.podes, rmax, z0, zm, dr, guess2)
+    podesol2, rb = sf.get_ray_1guess(sf.objfn, dv.odefns, rmax, z0, zm, dr, 1,guess2)
 else:
     podesol2, rb = None, None
 
-sodesol1, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess1)
+sodesol1, rb = sf.get_ray_1guess(sf.objfn, dv.odefns, rmax, z0, zm, dr, 2, guess1)
 if rb is not None:
-    sodesol2, rb = sf.get_ray_1guess(sf.objfn, sf.sodes, rmax, z0, zm, dr, guess2)
+    sodesol2, rb = sf.get_ray_1guess(sf.objfn, dv.odefns, rmax, z0, zm, dr, 2, guess2)
 else:
     sodesol2, rb = None, None
 
 # from analytic solns
-podesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, guess1)
+podesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, 1, guess1)
 if rb is not None:
-    podesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, guess2)
+    podesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, 1, guess2)
 else:
     podesol2_a, rb = None, None
 
-sodesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, guess1)
+sodesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, 2, guess1)
 if rb is not None:
-    sodesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, guess2)
+    sodesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, 2, guess2)
 else:
     sodesol2_a, rb = None, None
-
+'''
 if podesol1 is not None:
     plt.plot(podesol1.t, podesol1.y[1], label = 'p1-wave')
 if sodesol1 is not None:
@@ -109,17 +109,40 @@ plt.legend()
 #plt.savefig('snells_biaxial_example'+str(cont).replace('.','')+'.png', dpi=600)
 plt.show()
 plt.clf()
+'''
 
-p1a = interp1d(podesol1_a.t, podesol1_a.y[1], 'cubic')
+p1a = interp1d(podesol1_a.t, podesol1_a.y[1], 'linear')
 print('p1', max(np.abs(podesol1.y[1] - p1a(podesol1.t))))
+p1t = interp1d(podesol1_a.t, podesol1_a.y[2], 'linear')
 
-p2a = interp1d(podesol2_a.t, podesol2_a.y[1], 'cubic')
+p2a = interp1d(podesol2_a.t, podesol2_a.y[1], 'linear')
 print('p2', max(np.abs(podesol2.y[1] - p2a(podesol2.t))))
+p2t = interp1d(podesol2_a.t, podesol2_a.y[2], 'linear')
 
-s1a = interp1d(sodesol1_a.t, sodesol1_a.y[1], 'cubic')
+s1a = interp1d(sodesol1_a.t, sodesol1_a.y[1], 'linear')
 print('s1', max(np.abs(sodesol1.y[1] - s1a(sodesol1.t))))
+s1t = interp1d(sodesol1_a.t, sodesol1_a.y[2], 'linear')
 
-s2a = interp1d(sodesol2_a.t, sodesol2_a.y[1], 'cubic')
+s2a = interp1d(sodesol2_a.t, sodesol2_a.y[1], 'linear')
 print('s2', max(np.abs(sodesol2.y[1] - s2a(sodesol2.t))))
+s2t = interp1d(sodesol2_a.t, sodesol2_a.y[2], 'linear')
+
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+
+ax1.semilogy(podesol1.t, np.abs(podesol1.y[1] - p1a(podesol1.t)), '.', podesol2.t, np.abs(podesol2.y[1] - p2a(podesol2.t)), '.')
+ax1.set_ylabel('p1, p2 error')
+ax2.semilogy(sodesol1.t, np.abs(sodesol1.y[1] - s1a(sodesol1.t)), '.', sodesol2.t, np.abs(sodesol2.y[1] - s2a(sodesol2.t)), '.')
+ax2.set_ylabel('s1, s2 error')
+ax2.set_xlabel('r')
+plt.show()
+
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+
+ax1.semilogy(podesol1.t, np.abs(podesol1.y[2] - p1t(podesol1.t)), '.', podesol2.t, np.abs(podesol2.y[2] - p2t(podesol2.t)), '.')
+ax1.set_ylabel('p1, p2 error')
+ax2.semilogy(sodesol1.t, np.abs(sodesol1.y[2] - s1t(sodesol1.t)), '.', sodesol2.t, np.abs(sodesol2.y[2] - s2t(sodesol2.t)), '.')
+ax2.set_ylabel('s1, s2 error')
+ax2.set_xlabel('r')
+plt.show()
 
 

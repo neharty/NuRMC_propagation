@@ -40,8 +40,10 @@ testdepths = np.linspace(0, -2800, num=280)
 def ne(z):
     # x index of refraction function
     # extraordinary index of refraction function
-    cont = lambda zz: 1-test_func(zz, *params1)
-    return cont(z)*no(z)
+    #cont = lambda zz: 1-test_func(zz, *params1)
+    #return cont(z)*no(z)
+    cont = 0.997
+    return cont*no(z)
 
 def no(z):
     # ordinary index of refraction fn
