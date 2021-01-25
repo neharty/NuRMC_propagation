@@ -92,8 +92,8 @@ def npp(z):
 def ns(z):
     return no(z)
 
-def zderiv(z, phi, theta, n, h=1e-11):
+def zderiv(z, phi, theta, n, h=1e-5):
     return (n(z + h, phi, theta) - n(z-h, phi, theta))/(2*h)
 
-def thetaderiv(z, phi, theta, n, h=1e-11):
+def thetaderiv(z, phi, theta, n, h=1e-5):
     return (n(z, phi, theta + h) - n(z, phi, theta - h))/(2*h)

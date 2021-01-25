@@ -26,24 +26,42 @@ n3, n2, n1 = np.sqrt(eperp + np.array(fl['E1'])*deltae), np.sqrt(eperp + np.arra
 n2n3avg = (n2+n3)/2
 z0 = depth[0]
 
-def test_func(z, c):
-    b = 1.78 - np.sqrt(3.157)
-    return b/(1+np.exp(c*(z-z0)))
+def test_func(z, a, b, c):
+    return b/(1+a*np.exp(c*(z-z0)))
 
 #p0 = [min(n2n3avg-n1), max(n2n3avg-n1), 1]
-#p0 = [max(n2n3avg-n1), 1]
-params1, p = curve_fit(test_func, depth, n2n3avg - n1)
-
+p0 = [3, 0.0045, 3e-2]
+params1, p = curve_fit(test_func, depth, n2n3avg - n1, p0=p0)
+print(params1)
 #cont = lambda z: 1-test_func(z, *params1)
-testdepths = np.linspace(0, -2800, num=280)
+testdepths = np.linspace(-100, -1800, num=280)
+
+phi = 0.0
+
+def odefns(t, y, raytype, param='r'):
+    # odes 
+    if raytype ==1:
+        ntype = npp
+    elif raytype ==2:
+        ntype = ns
+    else:
+        raise RuntimeError('Please enter a valid ray type (1 or 2)')
+
+    if param == 'r':
+        # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
+        return [-np.cos(y[0])*zderiv(y[1], phi, y[0], ntype)/(ntype(y[1], phi, y[0])*np.cos(y[0])+thetaderiv(y[1],phi, y[0], ntype)*np.sin(y[0])), 1/np.tan(y[0]), ntype(y[1], phi, y[0])/np.abs(np.sin(y[0]))]
+    if param == 'l':
+        # form is [d(theta)/ds, dzds, dtds, drds]
+        return [-np.sin(y[0])*np.cos(y[0])*zderiv(y[1], phi, y[0], ntype)/(ntype(y[1], phi, y[0])*np.cos(y[0])+thetaderiv(y[1],phi, y[0], ntype)*np.sin(y[0])), np.cos(y[0]), ntype(y[1], phi, y[0]), np.sin(y[0])]
+
 
 def ne(z):
     # x index of refraction function
     # extraordinary index of refraction function
-    #cont = lambda zz: 1-test_func(zz, *params1)
-    #return cont(z)*no(z)
-    cont = 0.997
-    return cont*no(z)
+    cont = lambda zz: 1-test_func(zz, *params1)
+    return cont(z)*no(z)
+    #cont = 0.997
+    #return cont*no(z)
 
 def no(z):
     # ordinary index of refraction fn
@@ -57,8 +75,8 @@ def no(z):
 
 print(ne(-2800))
 
-#plt.plot(testdepths, no(testdepths), testdepths, ne(testdepths))
-#plt.show()
+plt.plot(depth, n2n3avg - n1, testdepths, test_func(testdepths, *params1))
+plt.show()
 
 def eps(z):
     # epsilon is diagonal

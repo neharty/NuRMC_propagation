@@ -16,8 +16,9 @@ import random
 import multiprocessing as mp
 
 import snell_prop_fns as sf
-import derivs_biaxial as dv
+from derivs import derivs_biaxial_c as dv
 
+from ray import ray
 
 sf.cont = 0.99
 '''
@@ -37,11 +38,13 @@ z0s = z0s[indx]
 
 cont = sf.cont
 rmaxs = np.sqrt(xx[indx]**2 + yy[indx]**2)
-ptimes = np.zeros(len(z0s))
-stimes = np.zeros(len(z0s))
+times = np.zeros(len(z0s))
+
 events = sf.hit_top
 
 outp = mp.Queue()
+
+phi = np.random.random()*2*np.pi
 
 def getray(raytype, initguess):
     return sf.get_ray_1guess(sf.objfn, dv.odefns, rmax, z0, zm, dr, raytype, initguess)
@@ -62,36 +65,23 @@ if __name__ == "__main__":
 
         guess2 = max([grazang, directang, mirrorang])
 
-        pool = mp.Pool(processes=4)
+        #pool = mp.Pool(processes=4)
         
+        p1ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 1, 'p1')
+        p2ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 1, 'p2')
+        s1ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 2, 's1')
+        s2ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 2, 's2')
+        
+        pc1 = mp.Process(target=p1ray.comp_ray, args=(guess1,))
+        pc2 = mp.Process(target=p2ray.comp_ray, args=(guess2,))
+        sc1 = mp.Process(target=s1ray.comp_ray, args=(guess1,))
+        sc2 = mp.Process(target=p2ray.comp_ray, args=(guess2,))
+
         ttmp = time.time()
-        p1, p2, s1, s2 = pool.starmap(getray, [(1, guess1), (1, guess2), (2, guess1), (2, guess2)])
-        #p2 = pool.apply(getray, args=(1, guess2))
-        
-        #s1 = pool.apply(getray, args=(2, guess1))
-        #s2 = pool.apply(getray, args=(2, guess2))
+        #p1, p2, s1, s2 = pool.starmap(getray, [(1, guess1), (1, guess2), (2, guess1), (2, guess2)])
+        pc1.start(), pc2.start(), sc1.start(), sc2.start()
+        pc1.join(), pc2.join(), sc1.join(), sc2.join()
+        times[i] = time.time() - ttmp
 
-        # from general quadratic formula
-    
-        stimes[i] = time.time() - ttmp
-
-        #solp1, solp2, sols1, sols2 = outp.get(), outp.get(), outp.get(), outp.get()
-        print(p1.y[1,-1])
-        '''
-        # from analytic solns
-        podesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, guess1)
-        if rb is not None:
-            podesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.podes_a, rmax, z0, zm, dr, guess2)
-        else:
-            podesol2_a, rb = None, None
-
-        sodesol1_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, guess1)
-        if rb is not None:
-            sodesol2_a, rb = sf.get_ray_1guess(sf.objfn, sf.sodes_a, rmax, z0, zm, dr, guess2)
-        else:
-            sodesol2_a, rb = None, None
-        '''
-
-print(max(ptimes), max(stimes))
-print('avg p time:', np.average(ptimes))
-print('avg s time per ray:', np.average(stimes)/4)
+print('approx max computation time:', max(times)/4)
+print('avg time per ray:', np.average(times)/4)

@@ -12,8 +12,8 @@ from numba import jit
 #derivfile  = str(input('Enter derivatives file: '))
 #dv = importlib.import_module(derivfile)
 
-#import derivs_xext as dv
-import derivs_biaxial as dv
+#from derivs import derivs_xext as dv
+from derivs import derivs_biaxial as dv
 
 
 '''
