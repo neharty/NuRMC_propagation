@@ -5,22 +5,27 @@ from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResul
 from scipy.constants import speed_of_light
 import importlib
 import sys
+#from pathos.multiprocessing import ProcessingPool as Pool
+from multiprocessing import Process, Queue
 
 class ray:
-        
-    label = None
-    z0 = None
-    zm = None
-    rmax = None
-    dr = None
-    phi = None
-    raytype = None
-    launch_angle = None
-    receive_angle = None
-    travel_time = None
+
+    def get_ray_r(self):
+        return self.ray_r
     
+    def get_ray_z(self):
+        return self.ray_z
+    
+    def get_launch_angle(self):
+        return self.launch_angle
+    
+    def get_receive_angle(self):
+        return self.receive_angle
+
+    def get_travel_time(self):
+        return self.travel_time
+
     def __init__(self, deriv_folder, deriv_mod, z0, zm, rmax, dr, phi, raytype, label):
-        #dv = importlib.import_module(str(deriv_mod))
         sys.path.append(str(deriv_folder))
         self.dv = importlib.import_module(str(deriv_mod))
         self.label = label
@@ -31,7 +36,25 @@ class ray:
         self.phi = phi
         self.raytype = raytype
         self.dv.phi = self.phi
-   
+        self.ray_r = []
+        self.ray_z = []
+        self.launch_angle = 0.
+        self.travel_time = 0.
+        self.odesol = []
+    
+    def copy_ray(self, odesol):
+        self.odesol = odesol
+        if odesol != (None, None):
+            self.launch_angle = odesol.y[0,0]
+            self.receive_angle = odesol.y[0,-1]
+            self.travel_time = 1e9*odesol.y[2,-1]/speed_of_light
+            self.ray_r = np.array(odesol.t)
+            self.ray_z = np.array(odesol.y[1,:])
+
+    def comp_ray_parallel(self, q, initguess):
+        q.put(self.comp_ray(initguess))
+
+
     def comp_ray(self, initguess):
         return self.get_ray_1guess(self.objfn, self.dv.odefns, self.rmax, self.z0, self.zm, self.dr, self.raytype, initguess)
 
@@ -43,7 +66,7 @@ class ray:
     def hit_bot(t, y):
         return np.abs(y[1]) - 2800
 
-    def shoot_ray(self, odefn, event, rinit, rmax, theta0,  z0, dr, raytype):
+    def shoot_ray(self, odefn, event, rinit, rmax, theta0, z0, dr, raytype):
         solver = 'RK45'
         #dense_output = True
         sol=solve_ivp(odefn, [rinit, rmax], [theta0, z0, 0], method=solver, events=event, max_step=dr, args=(raytype,))
@@ -63,7 +86,7 @@ class ray:
         sol = self.shoot_ray(ode, self.hit_top, 0, rmax, theta, z0, dr, raytype)
         zsol = sol.y[1,-1]
         return zsol - zm
-
+    
     def get_ray_1guess(self, minfn, odefn, rmax, z0, zm, dr, raytype, boundguess):
         lb, rb = self.get_bounds_1guess(boundguess, odefn, rmax, z0, zm, dr, raytype)
         if(lb == None and rb == None):
@@ -73,13 +96,16 @@ class ray:
 
         print(minsol.converged, minsol.flag)
         odesol = self.shoot_ray(odefn, self.hit_top, 0, rmax, minsol.root, z0, dr, raytype)
+        '''
         self.launch_angle = odesol.y[0,0]
         self.receive_angle = odesol.y[0,-1]
         self.travel_time = 1e9*odesol.y[2,-1]/speed_of_light
+        self.ray_r = np.array(odesol.t)
+        self.ray_z = np.array(odesol.y[1,:])
+        '''
         return odesol
 
     def get_bounds_1guess(self, initguess, odefn, rmax, z0, zm, dr, raytype, odeparam = 'r', xtol = None, maxiter=None):
-
         if xtol != None:
             xtol = xtol
         else:

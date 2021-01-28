@@ -26,14 +26,14 @@ n3, n2, n1 = np.sqrt(eperp + np.array(fl['E1'])*deltae), np.sqrt(eperp + np.arra
 n2n3avg = (n2+n3)/2
 z0 = depth[0]
 
-def test_func(z, a, b, c):
+def test_func(z, a, c):
+    b = 0.002
     return b/(1+a*np.exp(c*(z-z0)))
 
-#p0 = [min(n2n3avg-n1), max(n2n3avg-n1), 1]
-p0 = [3, 0.0045, 3e-2]
+#p0 = [3, 0.0045, 3e-2]
+p0 = [3, 3e-2]
 params1, p = curve_fit(test_func, depth, n2n3avg - n1, p0=p0)
 print(params1)
-#cont = lambda z: 1-test_func(z, *params1)
 testdepths = np.linspace(-100, -1800, num=280)
 
 phi = 0.0
@@ -54,14 +54,11 @@ def odefns(t, y, raytype, param='r'):
         # form is [d(theta)/ds, dzds, dtds, drds]
         return [-np.sin(y[0])*np.cos(y[0])*zderiv(y[1], phi, y[0], ntype)/(ntype(y[1], phi, y[0])*np.cos(y[0])+thetaderiv(y[1],phi, y[0], ntype)*np.sin(y[0])), np.cos(y[0]), ntype(y[1], phi, y[0]), np.sin(y[0])]
 
-
 def ne(z):
     # x index of refraction function
     # extraordinary index of refraction function
     cont = lambda zz: 1-test_func(zz, *params1)
     return cont(z)*no(z)
-    #cont = 0.997
-    #return cont*no(z)
 
 def no(z):
     # ordinary index of refraction fn
@@ -75,8 +72,8 @@ def no(z):
 
 print(ne(-2800))
 
-plt.plot(depth, n2n3avg - n1, testdepths, test_func(testdepths, *params1))
-plt.show()
+#plt.plot(depth, n2n3avg - n1, '.', testdepths, test_func(testdepths, *params1))
+#plt.show()
 
 def eps(z):
     # epsilon is diagonal
@@ -84,7 +81,6 @@ def eps(z):
 
 def npp(z, phi, theta):
     #p-polarization index of refraction
-    #return no(z)*nz(z)/np.sqrt(nz(z)**2*np.cos(theta)**2+no(z)**2*np.sin(theta)**2)
     return no(z)*ne(z)/np.sqrt((ne(z)**2*np.cos(phi)**2*np.sin(theta)**2+no(z)**2*(np.sin(theta)**2*np.sin(phi)**2+np.cos(theta)**2)))
 
 def ns(z, phi, theta):

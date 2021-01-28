@@ -13,7 +13,8 @@ import sys
 import time
 import h5py
 import random
-import multiprocessing as mp
+#from pathos.multiprocessing import ProcessingPool as Pool
+from multiprocessing import Process, Queue
 
 import snell_prop_fns as sf
 from derivs import derivs_biaxial_c as dv
@@ -40,14 +41,7 @@ cont = sf.cont
 rmaxs = np.sqrt(xx[indx]**2 + yy[indx]**2)
 times = np.zeros(len(z0s))
 
-events = sf.hit_top
-
-outp = mp.Queue()
-
 phi = np.random.random()*2*np.pi
-
-def getray(raytype, initguess):
-    return sf.get_ray_1guess(sf.objfn, dv.odefns, rmax, z0, zm, dr, raytype, initguess)
 
 if __name__ == "__main__":
     for i in range(len(z0s)):
@@ -64,24 +58,36 @@ if __name__ == "__main__":
         guess1 = min([grazang, directang, mirrorang])
 
         guess2 = max([grazang, directang, mirrorang])
-
-        #pool = mp.Pool(processes=4)
         
         p1ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 1, 'p1')
         p2ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 1, 'p2')
         s1ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 2, 's1')
         s2ray = ray('derivs', 'derivs_biaxial_c', z0, zm, rmax, dr, phi, 2, 's2')
+                
+        pq1 = Queue()
+        pq2 = Queue()
+        sq1 = Queue()
+        sq2 = Queue()
         
-        pc1 = mp.Process(target=p1ray.comp_ray, args=(guess1,))
-        pc2 = mp.Process(target=p2ray.comp_ray, args=(guess2,))
-        sc1 = mp.Process(target=s1ray.comp_ray, args=(guess1,))
-        sc2 = mp.Process(target=p2ray.comp_ray, args=(guess2,))
+        p1p = Process(target=p1ray.comp_ray_parallel, args=(pq1, guess1))
+        p2p = Process(target=p1ray.comp_ray_parallel, args=(pq2, guess2))
+        s1p = Process(target=p1ray.comp_ray_parallel, args=(sq1, guess1))
+        s2p = Process(target=p1ray.comp_ray_parallel, args=(sq2, guess2))
+        
+        p1p.start(), p2p.start(), s1p.start(), s2p.start()
+        p1p.join(), p2p.join(), s1p.join(), s2p.join()
 
-        ttmp = time.time()
-        #p1, p2, s1, s2 = pool.starmap(getray, [(1, guess1), (1, guess2), (2, guess1), (2, guess2)])
-        pc1.start(), pc2.start(), sc1.start(), sc2.start()
-        pc1.join(), pc2.join(), sc1.join(), sc2.join()
-        times[i] = time.time() - ttmp
+        p1ray.copy_ray(pq1.get()), p2ray.copy_ray(pq2.get()), s1ray.copy_ray(sq1.get()), s2ray.copy_ray(sq2.get())
+
+        print('testprint:', p1ray.travel_time)
+        plt.plot(p1ray.get_ray_r()[:], p1ray.get_ray_z()[:])
+        plt.plot(p2ray.get_ray_r()[:], p2ray.get_ray_z()[:])
+        plt.plot(s1ray.get_ray_r()[:], s1ray.get_ray_z()[:], '--')
+        plt.plot(s2ray.get_ray_r()[:], s2ray.get_ray_z()[:], '--')
+        plt.show()
+        plt.clf()
+
+        #times[i] = time.time() - ttmp
 
 print('approx max computation time:', max(times)/4)
 print('avg time per ray:', np.average(times)/4)

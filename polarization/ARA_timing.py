@@ -10,7 +10,8 @@ from scipy.constants import speed_of_light
 import snell_prop_fns as sf
 from derivs import derivs_xext as dv
 import time
-import multiprocessing as mp
+from multiprocessing import Queue, Process
+from ray import ray
 '''
 parser = argparse.ArgumentParser(description=' s and p wave simulation using snells law')
 parser.add_argument('cont', type=float,
@@ -55,48 +56,58 @@ for k in range(len(rmaxs)):
     rmax = rmaxs[k]
     z0 = z0s[k]
 
-    grazang = np.arcsin(np.trace(np.sqrt(dv.eps(0)))/(np.trace(np.sqrt(dv.eps(z0)))))
-    #dzg = sf.objfn(grazang, ode, rmax, z0, zm, dr)
-
-    directang = np.arctan(rmax/(np.abs(z0)-np.abs(zm)))
-    #dzd = sf.objfn(directang, ode, rmax, z0, zm, dr)
-
-    mirrorang = np.arctan(rmax/(np.abs(z0)+np.abs(zm)))
-    #dzm = sf.objfn(mirrorang, ode, rmax, z0, zm, dr)
-
-    #sortangs = np.sort(np.abs(np.array([grazang, directang, mirrorang]) - zm))
-
-    guess1 = min([grazang, directang, mirrorang])
-
-    guess2 = max([grazang, directang, mirrorang])
-
     for j in range(len(phiarr)):
         dv.phi = phiarr[j]
         print('\nphi: ', dv.phi)
-        
-        pool = mp.Pool(processes=4)
-        podesol1, podesol2, sodesol1, sodesol2 = pool.starmap(getray, [(1, guess1), (1, guess2), (2, guess1), (2, guess2)])
-        if(podesol1 is not None):
-            tp1 = 1e9*podesol1.y[2,-1]/speed_of_light
-            tmptab[j, 0]  = tp1
-        if(podesol2 is not None):
-            tp2 = 1e9*podesol2.y[2,-1]/speed_of_light
-            tmptab[j, 3] = tp2
+        phi = phiarr[j]
 
-        if(sodesol1 is not None):
-            ts1 = 1e9*sodesol1.y[2,-1]/speed_of_light
-            tmptab[j, 1] = ts1
-        if(sodesol2 is not None):
-            ts2 = 1e9*sodesol2.y[2,-1]/speed_of_light
-            tmptab[j, 4] = ts2
+        grazang = np.arcsin(np.trace(np.sqrt(dv.eps(0)))/(np.trace(np.sqrt(dv.eps(z0)))))
 
-        if(podesol1 is not None and sodesol1 is not None):
-            tmptab[j, 2] = tp1-ts1
-        if(podesol2 is not None and sodesol2 is not None):
-            tmptab[j, 5] = tp2-ts2
+        directang = np.arctan(rmax/(np.abs(z0)-np.abs(zm)))
+
+        mirrorang = np.arctan(rmax/(np.abs(z0)+np.abs(zm)))
+
+        guess1 = min([grazang, directang, mirrorang])
+
+        guess2 = max([grazang, directang, mirrorang])
+
+        p1ray = ray('derivs', 'derivs_xext', z0, zm, rmax, dr, phi, 1, 'p1')
+        p2ray = ray('derivs', 'derivs_xext', z0, zm, rmax, dr, phi, 1, 'p2')
+        s1ray = ray('derivs', 'derivs_xext', z0, zm, rmax, dr, phi, 2, 's1')
+        s2ray = ray('derivs', 'derivs_xext', z0, zm, rmax, dr, phi, 2, 's2')
+
+        pq1 = Queue()
+        pq2 = Queue()
+        sq1 = Queue()
+        sq2 = Queue()
+
+        p1p = Process(target=p1ray.comp_ray_parallel, args=(pq1, guess1))
+        p2p = Process(target=p2ray.comp_ray_parallel, args=(pq2, guess2))
+        s1p = Process(target=s1ray.comp_ray_parallel, args=(sq1, guess1))
+        s2p = Process(target=s2ray.comp_ray_parallel, args=(sq2, guess2))
+
+        p1p.start(), p2p.start(), s1p.start(), s2p.start()
+        p1p.join(), p2p.join(), s1p.join(), s2p.join()
+
+        p1ray.copy_ray(pq1.get()), p2ray.copy_ray(pq2.get()), s1ray.copy_ray(sq1.get()), s2ray.copy_ray(sq2.get())
+
+        if(p1ray.odesol is not None):
+            tmptab[j, 0]  = p1ray.travel_time
+        if(p2ray.odesol is not None):
+            tmptab[j, 3] = p2ray.travel_time
+
+        if(s1ray.odesol is not None):
+            tmptab[j, 1] = s1ray.travel_time
+        if(s2ray.odesol is not None):
+            tmptab[j, 4] = s2ray.travel_time
+
+        if(p1ray.odesol is not None and s1ray.odesol is not None):
+            tmptab[j, 2] = p1ray.travel_time - s1ray.travel_time
+        if(p2ray.odesol is not None and s2ray.odesol is not None):
+            tmptab[j, 5] = p2ray.travel_time - s2ray.travel_time
         
-        print(ts1, tp1, ts1 - tp1)
-        print(ts2, tp2, ts2 - tp2)
+        print(p1ray.travel_time, s1ray.travel_time, p1ray.travel_time - s1ray.travel_time)
+        print(p2ray.travel_time, s2ray.travel_time, p2ray.travel_time - s2ray.travel_time)
         
         tab = pd.DataFrame(data=tmptab, index=phiarr, columns=['p1 travel time [ns]', 's1 travel time [ns]', 'p-s delta t 1 [ns]', 'p2 travel time [ns]', 's2 travel time [ns]', 'p-s delta t 2 [ns]'])
         tab.to_csv('ARA_times_zcont1_d'+str(np.abs(z0))+'_xb'+str(rmax)+'.csv')
