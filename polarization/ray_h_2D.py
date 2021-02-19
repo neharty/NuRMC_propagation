@@ -55,28 +55,42 @@ class ray:
     
     # NOTE: all functions are written with repect to the parameter s = arclength
     def ode(self, s, u):
-        r = u[:3]
+        q = u[:3]
         p = u[3:-1]
+        qdot = self.DpH(q, p)
+        pdot = -self.DqH(q, p)
         rdot = p/np.linalg.norm(p)
-        n = self.n(r, rdot)
-        gradrn = self.gradr(r, rdot)
-        return np.array([p[0]/n, p[1]/n, p[2]/n, gradrn[0], gradrn[1], gradrn[2], n])
-    
-    def gradrdot(self, r, rdot):
-        h = 1e-5
-        Dxn = (self.n(r, [rdot[0] + h, rdot[1], rdot[2]]) - self.n(r, [rdot[0] - h, rdot[1], rdot[2]]))/(2*h)
-        Dyn = (self.n(r, [rdot[0], rdot[1] + h, rdot[2]]) - self.n(r, [rdot[0], rdot[1] - h, rdot[2]]))/(2*h)
-        Dzn = (self.n(r, [rdot[0], rdot[1], rdot[2] + h]) - self.n(r, [rdot[0], rdot[1], rdot[2] - h]))/(2*h)
-        return np.array([Dxn, Dyn, Dzn])
+        n = self.n(q, rdot)
+        print(n, np.dot(p, qdot) - self.H(q,p))
+        return np.array([qdot[0], qdot[1], qdot[2], pdot[0], pdot[1], pdot[2], n])
 
-
-    def gradr(self, r, rdot):
+    def grad(self, r, rdot):
         h = 1e-5
         Dxn = (self.n([r[0] + h, r[1], r[2]], rdot) - self.n([r[0] - h, r[1], r[2]], rdot))/(2*h)
         Dyn = (self.n([r[0], r[1] + h, r[2]], rdot) - self.n([r[0], r[1] - h, r[2]], rdot))/(2*h)
         Dzn = (self.n([r[0], r[1], r[2] + h], rdot) - self.n([r[0], r[1], r[2] - h], rdot))/(2*h)
         return np.array([Dxn, Dyn, Dzn])
     
+    def H(self, q, p):
+        D = np.array([[0, -p[2], p[1]],
+            [p[2], 0, -p[0]],
+            [-p[1], p[0], 0]])
+        return np.longdouble(np.linalg.det(D@D + self.eps(q)))
+
+    def DqH(self, q, p):
+        h = 1e-5
+        DxH = (self.H([q[0] + h, q[1], q[2]], p) - self.H([q[0] - h, q[1], q[2]], p))/(2*h)
+        DyH = (self.H([q[0], q[1] + h, q[2]], p) - self.H([q[0], q[1] - h, q[2]], p))/(2*h)
+        DzH = (self.H([q[0], q[1], q[2] + h], p) - self.H([q[0], q[1], q[2] - h], p))/(2*h)
+        return np.array([DxH, DyH, DzH])
+    
+    def DpH(self, q, p):
+        h = 1e-5
+        Dp1H = (self.H(q, [p[0] + h, p[1], p[2]]) - self.H(q, [p[0] - h, q[1], p[2]]))/(2*h)
+        Dp2H = (self.H(q, [p[0], p[1] + h, p[2]]) - self.H(q, [p[0], p[1] - h, p[2]]))/(2*h)
+        Dp3H = (self.H(q, [p[0], p[1], p[2] + h]) - self.H(q, [p[0], p[1], p[2] - h]))/(2*h)
+        return np.array([Dp1H, Dp2H, Dp3H])
+
     def adj(self, A):
         #formula for a 3x3 matrix
         return 0.5*np.eye(3)*(np.trace(A)**2 - np.trace(A@A)) - np.trace(A)*A + A@A
@@ -101,8 +115,8 @@ class ray:
     def shoot_ray(self, sf, phi0, theta0): 
         idir = np.array([np.cos(phi0)*np.sin(theta0), np.sin(phi0)*np.cos(theta0), np.cos(theta0)])
         dx0, dy0, dz0 = self.n([self.x0, self.y0, self.z0], idir)*idir
-        solver = 'DOP853'
-        mstep = min(sf, np.sqrt((self.xf - self.x0)**2+(self.yf-self.y0)**2 + (self.zf-self.z0)**2))/10
+        solver = 'RK45'
+        mstep = max(sf, np.sqrt((self.xf - self.x0)**2+(self.yf-self.y0)**2 + (self.zf-self.z0)**2))/10
         sol=solve_ivp(self.ode, [0, sf], [self.x0, self.y0, self.z0, dx0, dy0, dz0, 0], method=solver, events=self.hit_top, max_step=30) 
         if len(sol.t_events[0]) == 0:
             return OptimizeResult(t=sol.t, y=sol.y)
@@ -122,7 +136,7 @@ class ray:
 
     def _get_ray(self, sf, phi, theta):
         if self.ray.t == []:
-            minsol = root(self._rootfn, [sf, phi, theta])# options={'col_deriv': 0, 'xtol': 1e-10, 'ftol': 1e-10, 'gtol': 0.0, 'maxiter': 0, 'eps': 0.0, 'factor': 100, 'diag': None})
+            minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-12, 'maxfev': 0, 'band': None, 'eps': None, 'factor': 100, 'diag': None})
             print(minsol.success, minsol.message)
             self.ray = self.shoot_ray(minsol.x[0], minsol.x[1], minsol.x[2])
             

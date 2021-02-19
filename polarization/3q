@@ -1,0 +1,126 @@
+import numpy as np
+import matplotlib.pyplot as plt
+#from ray import ray
+from ray_hamiltonian import ray
+from NuRadioMC.SignalProp import analyticraytracing
+from NuRadioMC.utilities import medium
+from scipy.constants import speed_of_light
+from ray_old import ray as rayo
+import snell_prop_fns as sf
+from derivs import derivs_zext as dv
+from multiprocessing import Queue, Process
+
+#ARAsim_southpole
+nd = 1.78
+delta_n = 0.43
+z00 = 75.75757575757576
+ice = lambda zz: nd - delta_n*np.exp(zz/z00)
+
+def epsz(z):    
+    tmp = np.array([[1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 0.9]])
+
+    #return (ice(z)*tmp)**2
+    return ice(z)**2*np.eye(3)
+
+def eps(r):
+    return epsz(r[2])
+
+startpos = (0, 0, -300)
+#finishpos = (200, 200, -100)
+finishpos = (1000, 0, -200)
+
+r11 = ray(*startpos, *finishpos, 1, 1, eps)
+r12 = ray(*startpos, *finishpos, 1, 2, eps)
+r21 = ray(*startpos, *finishpos, 2, 1, eps)
+r22 = ray(*startpos, *finishpos, 2, 2, eps)
+
+#analytic ray from nrmc
+g = analyticraytracing.ray_tracing(startpos, finishpos, medium.get_ice_model('ARAsim_southpole'), n_frequencies_integration = 1)
+g.find_solutions()
+nrmc1 = g.get_path(0)
+nrmc2 = g.get_path(1)
+
+#from snell_fns scripts
+sf.cont = 0.9
+phi = 0
+z0 = -300
+zm = -200
+dr = 10
+dz = 10
+rmax = 1000
+
+print('\nstarting 2D rays ...')
+p1ray = rayo(z0, zm, rmax, dr, phi, epsz, 1, 1, 'p1')
+p2ray = rayo(z0, zm, rmax, dr, phi, epsz, 1, 2, 'p2')
+s1ray = rayo(z0, zm, rmax, dr, phi, epsz, 2, 1, 's1')
+s2ray = rayo(z0, zm, rmax, dr, phi, epsz, 2, 2, 's2')
+
+pq1 = Queue()
+pq2 = Queue()
+sq1 = Queue()
+sq2 = Queue()
+
+guess1 = np.arccos(g.get_launch_vector(0)[2])
+guess2 = np.arccos(g.get_launch_vector(1)[2])
+
+p1p = Process(target=p1ray.comp_ray_parallel, args=(pq1, ))
+p2p = Process(target=p2ray.comp_ray_parallel, args=(pq2, ))
+s1p = Process(target=s1ray.comp_ray_parallel, args=(sq1, ))
+s2p = Process(target=s2ray.comp_ray_parallel, args=(sq2, ))
+
+p1p.start(), p2p.start(), s1p.start(), s2p.start()
+p1p.join(), p2p.join(), s1p.join(), s2p.join()
+
+p1ray.copy_ray(pq1.get()), p2ray.copy_ray(pq2.get()), s1ray.copy_ray(sq1.get()), s2ray.copy_ray(sq2.get())
+print('\nfinished 2D rays')
+
+#new hamiltonian code
+print('\nstarting 3D rays...')
+r11.get_ray()
+print(r11.ray.t[-1]/r11.guess_l, r11.travel_time/r11.guess_t)
+r12.get_ray()
+print(r12.ray.t[-1]/r12.guess_l, r12.travel_time/r12.guess_t)
+
+r21.get_ray()
+print(r21.ray.t[-1]/r21.guess_l, r21.travel_time/r21.guess_t)
+r22.get_ray()
+print(r22.ray.t[-1]/r22.guess_l, r22.travel_time/r22.guess_t)
+print('\nfinished 3D rays')
+'''
+ax = plt.axes(projection='3d')
+
+ax.plot3D(r11.ray.y[0,:], r11.ray.y[1,:], r11.ray.y[2,:])
+ax.plot3D(r12.ray.y[0,:], r12.ray.y[1,:], r12.ray.y[2,:])
+
+#ax.plot3D(r21.ray.y[0,:], r21.ray.y[1,:], r21.ray.y[2,:])
+#ax.plot3D(r22.ray.y[0,:], r22.ray.y[1,:], r22.ray.y[2,:])
+
+ax.plot3D(nrmc1[:, 0], nrmc1[:, 1], nrmc1[:,2], '--')
+ax.plot3D(nrmc2[:, 0], nrmc2[:, 1], nrmc2[:,2], '--')
+
+ax.set_ylim([-3, 3])
+
+plt.show()
+plt.clf
+'''
+plt.plot(podesol1.t, podesol1.y[1,:])
+plt.plot(podesol2.t, podesol2.y[1,:])
+
+plt.plot(sodesol1.t, sodesol1.y[1,:])
+plt.plot(sodesol2.t, sodesol2.y[1,:])
+
+plt.plot(np.sqrt(r11.ray.y[0,:]**2 + r11.ray.y[1,:]**2), r11.ray.y[2,:], '--.')
+plt.plot(np.sqrt(r12.ray.y[0,:]**2 + r12.ray.y[1,:]**2), r12.ray.y[2,:], '--.')
+
+plt.plot(np.sqrt(r21.ray.y[0,:]**2 + r21.ray.y[1,:]**2), r21.ray.y[2,:])
+plt.plot(np.sqrt(r22.ray.y[0,:]**2 + r22.ray.y[1,:]**2), r22.ray.y[2,:])
+
+'''
+plt.plot(np.sqrt(nrmc1[:, 0]**2 + nrmc1[:, 1]**2), nrmc1[:,2], '--')
+plt.plot(np.sqrt(nrmc2[:, 0]**2 + nrmc2[:, 1]**2), nrmc2[:,2], '--')
+'''
+plt.show()
+
+  

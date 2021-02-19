@@ -19,7 +19,7 @@ from multiprocessing import Process, Queue
 import snell_prop_fns as sf
 from derivs import derivs_biaxial_c as dv
 
-from ray import ray
+from ray_old import ray
 
 sf.cont = 0.99
 '''

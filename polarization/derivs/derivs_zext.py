@@ -7,38 +7,32 @@ from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResul
 import pandas as pd
 from scipy.constants import speed_of_light
 
+def odefns(t, y, raytype, param='r'):
+    # odes 
+    if raytype ==1:
+        ntype = npp
+    elif raytype ==2:
+        ntype = ns
+    else:
+        raise RuntimeError('Please enter a valid ray type (1 or 2)')
+
+    if param == 'r':
+        # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
+        return [-np.cos(y[0])*zderiv(y[1], phi, y[0], ntype)/(ntype(y[1], phi, y[0])*np.cos(y[0])+thetaderiv(y[1],phi, y[0], ntype)*np.sin(y[0])), 1/np.tan(y[0]), ntype(y[1], phi, y[0])/np.abs(np.sin(y[0]))]
+    if param == 'l':
+        # form is [d(theta)/ds, dzds, dtds, drds]
+        return [-np.sin(y[0])*np.cos(y[0])*zderiv(y[1], phi, y[0], ntype)/(ntype(y[1], phi, y[0])*np.cos(y[0])+thetaderiv(y[1],phi, y[0], ntype)*np.sin(y[0])), np.cos(y[0]), ntype(y[1], phi, y[0]), np.sin(y[0])]
+
 # ice parameters
 nss = 1.35
 nd = 1.78
 c = 0.0132
 
 #sim model parameters
-
-fl = pd.read_csv('epsdata/evals_vs_depth.csv')
-depth = np.array(fl['Nominal Depth'])
-
-eperp = 3.157
-deltae = 0.034
-
-#puts eigenvals in same coords as jordan et al.
-n3, n2, n1 = np.sqrt(eperp + np.array(fl['E1'])*deltae), np.sqrt(eperp + np.array(fl['E2'])*deltae), np.sqrt(eperp + np.array(fl['E3'])*deltae)
-
-n2n3avg = (n2+n3)/2
-z0 = depth[0]
-
-def test_func(z, a,b,c):
-    return a + b/(1+np.exp(-c*(z-z0)))
-
-p0 = [min(n2n3avg-n1), max(n2n3avg-n1), 1]
-
-params1, p = curve_fit(test_func, depth, n2n3avg - n1, p0, method='dogbox')
-
-cont = lambda z: 1-test_func(z, *params1)
-
 def ne(z):
     # z index of refraction function
     # extraordinary index of refraction function
-    return cont(z)*no(z)
+    return 0.9*no(z)
 
 def no(z):
     # ordinary index of refraction fn

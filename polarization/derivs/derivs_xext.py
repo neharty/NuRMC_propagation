@@ -26,13 +26,12 @@ n3, n2, n1 = np.sqrt(eperp + np.array(fl['E1'])*deltae), np.sqrt(eperp + np.arra
 n2n3avg = (n2+n3)/2
 z0 = depth[0]
 
-def test_func(z, a, c):
-    b = 0.0015
+def test_func(z, a, b, c):
     return b/(1+a*np.exp(c*(z-z0)))
 
-#p0 = [3, 0.0045, 3e-2]
-p0 = [3, 3e-2]
-params1, p = curve_fit(test_func, depth, n2n3avg - n1, p0=p0)
+p0 = [3, 0.0045, 3e-2]
+#p0 = [3, 3e-2]
+params1, p = curve_fit(test_func, depth, (n2n3avg - n1)/(n2n3avg+n1), p0=p0)
 print(params1)
 testdepths = np.linspace(-100, -1800, num=280)
 

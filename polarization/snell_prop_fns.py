@@ -16,20 +16,20 @@ from numba import jit
 from derivs import derivs_biaxial as dv
 
 
-'''
-    def podes_a(t, y, param='r'):
+
+def podes_a(t, y, param='r'):
         # odes for p-polarization
         
         # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
         return [-np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.npp_a)/(dv.npp_a(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1],phi, y[0], dv.npp_a)*np.sin(y[0])), 1/np.tan(y[0]), dv.npp_a(y[1], phi, y[0])/np.abs(np.sin(y[0]))]
 
 
-    def sodes_a(t, y, param='r'):
+def sodes_a(t, y, param='r'):
         # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
         return [-np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.ns_a)/(dv.ns_a(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1],phi, y[0], dv.ns_a)*np.sin(y[0])), 1/np.tan(y[0]), dv.ns_a(y[1], phi, y[0])/np.abs(np.sin(y[0]))]
 
 
-    def podes(t, y, param='r'):
+def podes(t, y, param='r'):
         # odes for p-polarization
         
         if param == 'r':
@@ -40,7 +40,7 @@ from derivs import derivs_biaxial as dv
             return [-np.sin(y[0])*np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.npp)/(dv.npp(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1],phi, y[0], dv.npp)*np.sin(y[0])), np.cos(y[0]), dv.npp(y[1], phi, y[0]), np.sin(y[0])]
 
 
-    def sodes(t, y, param='r'):
+def sodes(t, y, param='r'):
         # odes for s-polarization
         if param == 'r':
             # form is [d(theta)/dr, dzdr, dtdr], r = radial distance
@@ -48,7 +48,7 @@ from derivs import derivs_biaxial as dv
         if param == 'l':
             # form is [d(theta)/ds, dzds, dtds, drds]
             return [-np.sin(y[0])*np.cos(y[0])*dv.zderiv(y[1], phi, y[0], dv.ns)/(dv.ns(y[1], phi, y[0])*np.cos(y[0])+dv.thetaderiv(y[1], phi, y[0], dv.npp)*np.sin(y[0])), np.cos(y[0]), dv.ns(y[1], phi, y[0]), np.sin(y[0])]
-'''
+
 
 def hit_top(t, y, rt):
     return y[1]
