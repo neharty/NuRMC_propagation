@@ -7,7 +7,6 @@ from NuRadioMC.SignalProp import analyticraytracing
 from NuRadioMC.utilities import medium
 
 class ray:
-
     def __init__(self, x0, y0, z0, xf, yf, zf, ntype, raytype, eps, label=None):
         self.label = label
 
@@ -59,7 +58,15 @@ class ray:
         qdn = np.linalg.norm(qdot, 2)
         qdot = qdot/qdn
         pdot = -self.DqH(q, p)/qdn
-        return np.array([qdot[0], qdot[1], qdot[2], pdot[0], pdot[1], pdot[2], np.dot(p, qdot) if (np.arccos(np.dot(rdot, qdot)) < np.pi/2 and np.arccos(np.dot(rdot, qdot)) >= 0) else np.dot(-p, qdot)])
+        
+        if np.dot(rdot, qdot) > 1:
+            cosang = 1
+        elif np.dot(rdot, qdot) < -1: 
+            cosang = -1
+        else:
+            cosang = np.dot(rdot, qdot)
+
+        return np.array([qdot[0], qdot[1], qdot[2], pdot[0], pdot[1], pdot[2], cosang*np.linalg.norm(p)])
 
     def grad(self, r, rdot):
         h = 1e-5
@@ -124,6 +131,8 @@ class ray:
         mstep = max(np.abs(sf), np.sqrt((self.xf - self.x0)**2+(self.yf-self.y0)**2 + (self.zf-self.z0)**2))/30
         sol=solve_ivp(self.ode, [0, sf], [self.x0, self.y0, self.z0, dx0, dy0, dz0, 0], method=solver, events=self.hit_top, max_step=mstep) 
         if len(sol.t_events[0]) == 0:
+            sol.t = np.abs(sol.t)
+            sol.y[-1,:] = np.abs(sol.y[-1,:])
             return OptimizeResult(t=sol.t, y=sol.y)
         else:
             sinit = sol.t_events[0][0]
@@ -132,6 +141,8 @@ class ray:
             tvals = np.hstack((sol.t[sol.t < sinit], sol2.t))
             #yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < sinit])], sol2.y))
             yvals = np.hstack((sol.y, sol2.y))
+            tvals = np.abs(tvals)
+            yvals[-1,:] = np.abs(yvals[-1,:])
             return OptimizeResult(t=tvals, y=yvals)
 
     def _rootfn(self, args):
@@ -142,7 +153,7 @@ class ray:
 
     def _get_ray(self, sf, phi, theta):
         if self.ray.t == []:
-            minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-12, 'maxfev': 0, 'band': None, 'eps': None, 'factor': 100, 'diag': None})
+            minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-10, 'eps':1e-3, 'factor': 1, 'diag': None})
             print(minsol.success, minsol.message)
             self.copy_ray(self.shoot_ray(minsol.x[0], minsol.x[1], minsol.x[2]))
             ''' 
@@ -186,7 +197,6 @@ class ray:
         return sg, phig, thetag
         
 class rays(ray):
-
     def __init__(self, x0, y0, z0, xf, yf, zf, eps, dr = None):
         #naming convention is r_ik, i = ntype, k = raytype
         

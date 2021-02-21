@@ -76,9 +76,24 @@ for k in range(len(rmaxs)):
         tmptab[j, 1] = rayz.get_time(0,1)
         tmptab[j, 4] = rayz.get_time(1,1)
 
-        tmptab[j, 2] = rayz.get_time(0,0) - rayz.get_time(0,1)
-        tmptab[j, 5] = rayz.get_time(1,0) - rayz.get_time(1,1)
+        tmptab[j, 2] = rayz.get_time(0,0) - rayz.get_time(1,0)
+        tmptab[j, 5] = rayz.get_time(0,1) - rayz.get_time(1,1)
+        ''' 
+        r11 = rayz.get_ray(0,0)
+        r12 = rayz.get_ray(0,1)
+        r21 = rayz.get_ray(1,0)
+        r22 = rayz.get_ray(1,1)
         
+        plt.plot(np.sqrt(r11.y[0,:]**2 + r11.y[1,:]**2), r11.y[2,:], '--.', label = 'p1')
+        plt.plot(np.sqrt(r12.y[0,:]**2 + r12.y[1,:]**2), r12.y[2,:], '--*', label = 'p2')
+
+        plt.plot(np.sqrt(r21.y[0,:]**2 + r21.y[1,:]**2), r21.y[2,:], label = 's1')
+        plt.plot(np.sqrt(r22.y[0,:]**2 + r22.y[1,:]**2), r22.y[2,:], '--', label = 's2')
+        
+        plt.legend()
+        plt.show()
+        plt.clf()
+        '''
         print('\n', phi)
         print(rayz.get_time(0,0), rayz.get_time(1,0), rayz.get_time(0,0) - rayz.get_time(1,0))
         print(rayz.get_time(0,1), rayz.get_time(1,1), rayz.get_time(0,1) - rayz.get_time(1,1))
