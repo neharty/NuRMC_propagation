@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResult, fsolve
+from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResult, least_squares
 from scipy.constants import speed_of_light
 from multiprocessing import Process, Queue
 from NuRadioMC.SignalProp import analyticraytracing
@@ -19,7 +19,12 @@ class ray:
             print(raytype)
             raise RuntimeError('Please enter a valid ray type (1 or 2)')
         
-        self.ntype = ntype
+        if ntype == 1 or ntype == 2:
+            self.ntype = ntype
+        else:
+            print(ntype)
+            raise RuntimeError('Please enter a valid index of refraction type (1 or 2)')
+        
         self.eps = eps
 
         self.ray_x = []
@@ -112,17 +117,10 @@ class ray:
             discr = (B + 2*np.sqrt(A*C))*(B - 2*np.sqrt(A*C))
             ntmp = np.sqrt((B + np.sqrt(np.abs(discr)))/(2*A))
             
-            no = np.sqrt(self.eps(r)[0,0])
-            ne = np.sqrt(self.eps(r)[2,2])
-            theta = np.arccos(rdot[2])
-
             if self.ntype == 1:
-                #return no*ne/np.sqrt(ne**2*np.cos(theta)**2+no**2*np.sin(theta)**2)
                 return np.sqrt(C/A)/ntmp
             if self.ntype == 2:
-                #print(np.abs(ntmp - no))
                 return ntmp
-                #return no
 
     def shoot_ray(self, sf, phi0, theta0): 
         idir = np.array([np.cos(phi0)*np.sin(theta0), np.sin(phi0)*np.sin(theta0), np.cos(theta0)])
@@ -138,9 +136,8 @@ class ray:
             sinit = sol.t_events[0][0]
             evnt = sol.y_events[0][0]
             sol2 = solve_ivp(self.ode, [sinit, sf], [evnt[0], evnt[1], 0, evnt[3], evnt[4], -evnt[5], evnt[6]], method=solver, max_step=mstep)
-            tvals = np.hstack((sol.t[sol.t < sinit], sol2.t))
-            #yvals = np.hstack((sol.y[:, :len(sol.t[sol.t < sinit])], sol2.y))
-            yvals = np.hstack((sol.y, sol2.y))
+            tvals = np.hstack((sol.t[:-1], sol2.t))
+            yvals = np.hstack((sol.y[:, :len(sol.t[:-1])], sol2.y))
             tvals = np.abs(tvals)
             yvals[-1,:] = np.abs(yvals[-1,:])
             return OptimizeResult(t=tvals, y=yvals)
@@ -148,25 +145,42 @@ class ray:
     def _rootfn(self, args):
         #function for rootfinder
         sol = self.shoot_ray(args[0], args[1], args[2])
-        #return (sol.y[0, -1] - self.xf)**2 +  (sol.y[1, -1] - self.yf)**2 + (sol.y[2, -1] - self.zf)**2
-        return [sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf]
+        return np.abs([sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf])
+    
+    def _distsq(self, args):
+        sol = self.shoot_ray(args[0], args[1], args[2])
+        return (sol.y[0, -1] - self.xf)**2 +  (sol.y[1, -1] - self.yf)**2 + (sol.y[2, -1] - self.zf)**2
+    
+    def _unitvect(self, v):
+        return v/np.linalg.norm(v)
 
     def _get_ray(self, sf, phi, theta):
         if self.ray.t == []:
-            minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-10, 'eps':1e-3, 'factor': 1, 'diag': None})
+            #minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-10, 'eps':1e-3, 'factor': 1, 'diag': None})
+            minsol = least_squares(self._rootfn, [sf, phi, theta], method='lm', xtol=1e-10, x_scale=[1000, 1e-8, 1])
+            if minsol.cost > 1e-3:
+                minsol = minimize(self._distsq, minsol.x, method='Nelder-Mead', options={'disp':True, 'xatol':1e-12, 'fatol':1e-8, 'adaptive':True})
             print(minsol.success, minsol.message)
             self.copy_ray(self.shoot_ray(minsol.x[0], minsol.x[1], minsol.x[2]))
-            ''' 
-            self.launch_vector = self.ray.y[3:6, 0] / np.linalg.norm(self.ray.y[3:6, 0])
-            self.receive_vector = self.ray.y[3:6, -1] / np.linalg.norm(self.ray.y[3:6, -1])
             
-            self.initial_Efield = self.adj(self.eps((self.x0, self.y0, self.z0)) - self.n((self.x0, self.y0, self.z0), self.launch_vector)**2) @ (self.n((self.x0, self.y0, self.z0), self.launch_vector) * self.launch_vector)
-            self.initial_Efield = self.initial_Efield / np.linalg.norm(self.initial_Efield)
+            self.launch_vector = self._unitvect(np.array(self.ray.y[0:3, 1] - self.ray.y[0:3, 0]))
+            self.receive_vector = self._unitvect(np.array(self.ray.y[0:3, -1] - self.ray.y[0:3,-2]))
+            self.initial_wavefront = self._unitvect(np.array(self.ray.y[3:6, 0]))
+            self.final_wavefront = self._unitvect(np.array(self.ray.y[3:6, -1]))
             
-            self.final_Efield = self.adj(self.eps((self.xf, self.yf, self.zf)) - self.n((self.xf, self.yf, self.zf), self.receive_vector)**2) @ (self.n((self.xf, self.yf, self.zf), self.receive_vector) * self.receive_vector)
-            self.final_Efield = self.final_Efield / np.linalg.norm(self.final_Efield)
-            #NOTE: E-field calculations are incorrect, only works when matrix is nonsingular (see Chen)
-            '''
+            if np.abs(np.linalg.det(self.eps(self.ray.y[0:3,0]) - self.n(self.ray.y[0:3,0], self.initial_wavefront)**2*np.eye(3))) > 1e-10:
+                self.initial_E_pol = self._unitvect((self.eps(self.ray.y[0:3,0]) - self.n(self.ray.y[0:3,0], self.initial_wavefront)**2*np.eye(3)) @ self.ray.y[3:6,0])
+                self.initial_B_pol = self._unitvect(np.cross(self.ray.y[3:6, 0], self.initial_E_pol))
+            #TODO: code singular case
+            else:
+                print('Matrix is singular', np.linalg.det(self.eps(self.ray.y[0:3,0]) - self.n(self.ray.y[0:3,0], self.initial_wavefront)**2*np.eye(3)))
+
+            if np.abs(np.linalg.det(self.eps(self.ray.y[0:3,-1]) - self.n(self.ray.y[0:3,-1], self.final_wavefront)**2*np.eye(3))) > 1e-10:
+                self.final_E_pol = self._unitvect((self.eps(self.ray.y[0:3,-1]) - np.linalg.norm(self.ray.y[3:6,-1])**2*np.eye(3)) @ self.ray.y[3:6,-1])
+                self.final_B_pol = self._unitvect(np.cross(self.ray.y[3:6, -1], self.final_E_pol))
+            else:
+                print('Matrix is singular', np.linalg.det(self.eps(self.ray.y[0:3,-1]) - self.n(self.ray.y[0:3,-1], self.final_wavefront)**2*np.eye(3)))
+
             return self.ray
         else:
             return self.ray
@@ -179,22 +193,6 @@ class ray:
             return self.ray
         else:
             return self.ray
-
-    def get_guess(self, q=None):
-        r0 = np.array([self.x0, self.y0, self.z0])
-        rf = np.array([self.xf, self.yf, self.zf])
-        g = analyticraytracing.ray_tracing(r0, rf, medium.get_ice_model('ARAsim_southpole'), n_frequencies_integration = 1)
-        g.find_solutions()
-        #sg = g.get_travel_time(self.raytype-1)
-        sg = g.get_path_length(self.raytype-1)
-        #print('\nguess length:', sg, 'guess time', g.get_travel_time(self.raytype-1))
-        self.guess_l = sg
-        self.guess_t = g.get_travel_time(self.raytype-1)
-        lv = g.get_launch_vector(self.raytype-1)
-        lv = lv/np.linalg.norm(lv)
-        phig = np.arctan((self.yf - self.y0)/(self.xf-self.x0))
-        thetag = np.arccos(lv[2])
-        return sg, phig, thetag
         
 class rays(ray):
     def __init__(self, x0, y0, z0, xf, yf, zf, eps, dr = None):
@@ -246,6 +244,13 @@ class rays(ray):
             for i in [0,1]:
                 for k in [0,1]:
                     self.r[i,k].copy_ray(q[i,k].get())
+
+            for i in [0,1]:
+                if max(self.r[i,0].ray.y[2,:]) > max(self.r[i,1].ray.y[2,:]):
+                    tmp = self.r[i,0]
+                    self.r[i,0] = self.r[i,1]
+                    self.r[i,1] = tmp
+                    del tmp
 
     def get_ray(self, i, k):
         return self.r[i,k].ray
