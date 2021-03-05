@@ -2,9 +2,7 @@ import numpy as np
 import autograd.numpy as anp
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize, curve_fit, root, root_scalar, OptimizeResult, least_squares
-from scipy.optimize import differential_evolution
 from scipy.constants import speed_of_light
-from scipy.linalg import null_space
 from multiprocessing import Process, Queue
 from NuRadioMC.SignalProp import analyticraytracing
 from NuRadioMC.utilities import medium
@@ -81,7 +79,6 @@ class ray:
         self.initial_B_pol = []
         self.final_E_pol = []
         self.final_B_pol = []
-        self._dsign = 1
 
     def copy_ray(self, odesol):
         if odesol != (None, None):
@@ -95,8 +92,8 @@ class ray:
             self.initial_E_pol, self.initial_B_pol = self._get_pols(0)
             self.final_E_pol, self.final_B_pol = self._get_pols(-1)
 
-    def get_ray_parallel(self, q, sguess, phiguess, thetaguess, thetabound):
-        q.put(self.get_ray(sguess, phiguess, thetaguess, thetabound)) 
+    def get_ray_parallel(self, q, args0, argsf):
+        q.put(self.get_ray(args0, argsf)) 
 
     def hit_top(self, s, u):
         return u[2]
@@ -112,54 +109,55 @@ class ray:
 
         takes in values and converts derivatives w.r.t. arclength
         '''
-        
-        q = u[:3]
-        p = u[3:-1]
-        self._dsign = self.H(q, p)
-        phat = p/np.linalg.norm(p, 2)
-        qdot = self._dsign*self.DpH(q, p)
-        
+        q = u[:2]
+        p = u[2:-1]
+        rdot = p/np.linalg.norm(p, 2)
+        #n = self.n(q, rdot)
+        qdot = self.DpH(q, p)
         qdn = np.linalg.norm(qdot, 2)
-        
         qdot = qdot/qdn
-        pdot = -self._dsign*self.DqH(q, p)/qdn
+        pdot = -self.DqH(q, p)/qdn
         
-        if np.dot(phat, qdot) > 1:
+        if np.dot(rdot, qdot) > 1:
             cosang = 1
-        elif np.dot(phat, qdot) < -1: 
+        elif np.dot(rdot, qdot) < -1: 
             cosang = -1
         else:
-            cosang = np.dot(phat, qdot)
+            cosang = np.dot(rdot, qdot)
 
         return np.array([qdot[0], qdot[1], qdot[2], pdot[0], pdot[1], pdot[2], cosang*np.linalg.norm(p)])
-   
-    def HMat(self, q, p):
+
+    def grad(self, r, rdot):
+        h = 1e-5
+        Dxn = (self.n([r[0] + h, r[1], r[2]], rdot) - self.n([r[0] - h, r[1], r[2]], rdot))/(2*h)
+        Dyn = (self.n([r[0], r[1] + h, r[2]], rdot) - self.n([r[0], r[1] - h, r[2]], rdot))/(2*h)
+        Dzn = (self.n([r[0], r[1], r[2] + h], rdot) - self.n([r[0], r[1], r[2] - h], rdot))/(2*h)
+        return np.array([Dxn, Dyn, Dzn])
+
+    def H(self, q, p):
+        D = np.array([[0, -p[2], p[1]],
+            [p[2], 0, -p[0]],
+            [-p[1], p[0], 0]])
         D2 = np.array([[-p[1]**2 - p[2]**2, p[0]*p[1], p[0]*p[2]],
             [p[0]*p[1], -p[0]**2-p[2]**2, p[1]*p[2]],
             [p[2]*p[0], p[2]*p[1], -p[0]**2-p[1]**2]])
-        return self.eps(q)+D2
-    
-    def det(self, A):
-        #return A[0,0]*(A[1,1]*A[2,2] - A[1,2]*A[2,1]) - A[0,1]*(A[0,1]*A[2,2] - A[1,2]*A[2,0]) + A[0,2]*(A[1,0]*A[2,1] - A[1,1]*A[2,0])
-        return np.linalg.det(A)
-
-    def H(self, q, p):
-        return np.linalg.det(self.HMat(q, p))
+        #return np.longdouble(np.linalg.det(D@D + self.eps(q)))
+        return np.linalg.det(self.eps(q)+D2)
 
     def DqH(self, q, p):
         h = 1e-5
         DxH = (self.H([q[0] + h, q[1], q[2]], p) - self.H([q[0] - h, q[1], q[2]], p))/(2*h)
-        DyH = (self.H([q[0], q[1] + h, q[2]], p) - self.H([q[0], q[1]- h, q[2]], p))/(2*h)
+        DyH = (self.H([q[0], q[1] + h, q[2]], p) - self.H([q[0], q[1] - h, q[2]], p))/(2*h)
         DzH = (self.H([q[0], q[1], q[2] + h], p) - self.H([q[0], q[1], q[2] - h], p))/(2*h)
         return np.array([DxH, DyH, DzH])
-
+        
     def DpH(self, q, p):
         h = 1e-5
-        Dp1H = (self.H(q, [p[0] + h, p[1], p[2]]) - self.H(q, [p[0] - h, p[1], p[2]]))/(2*h)
-        Dp2H = (self.H(q, [p[0], p[1] + h, p[2]]) - self.H(q, [p[0], p[1] - h, p[2]]))/(2*h)
+        Dp1H = 0
+        Dp2H = 0
         Dp3H = (self.H(q, [p[0], p[1], p[2] + h]) - self.H(q, [p[0], p[1], p[2] - h]))/(2*h)
         return np.array([Dp1H, Dp2H, Dp3H])
-        
+
     def adj(self, A):
         '''computes the adjugate for a 3x3 matrix'''
         return 0.5*np.eye(3)*(np.trace(A)**2 - np.trace(A@A)) - np.trace(A)*A + A@A
@@ -173,21 +171,21 @@ class ray:
         '''
         tmp = self.eps(r)
         if not isinstance(tmp, np.ndarray):
-            return np.sqrt(tmp)
+            return np.sqrt(self.eps(r))
         else:
             rdot = rdot/np.linalg.norm(rdot)
             A = rdot @ self.eps(r) @ rdot
             B = rdot @ (np.trace(self.adj(self.eps(r)))*np.eye(3) - self.adj(self.eps(r))) @ rdot
             C = np.linalg.det(self.eps(r))
             discr = (B + 2*np.sqrt(A*C))*(B - 2*np.sqrt(A*C))
-            ntmp = (B + np.sqrt(np.abs(discr)))/(2*A)
+            ntmp = np.sqrt((B + np.sqrt(np.abs(discr)))/(2*A))
             
             if self.ntype == 1:
-                return np.sqrt(C/(ntmp*A))
+                return np.sqrt(C/A)/ntmp
             if self.ntype == 2:
-                return np.sqrt(ntmp)
+                return ntmp
 
-    def shoot_ray(self, sf, phi0, theta0): 
+    def shoot_ray(self, x0, y0, z0, sf, phi0, theta0): 
         '''
         solves the ray ODEs given arclength and intial angles for p
 
@@ -195,13 +193,12 @@ class ray:
         phi0 : azimuth angle for p
         theta0 : zenith angle for p
         '''
-        
-        idir = np.array([np.cos(phi0)*np.sin(theta0), np.sin(phi0)*np.sin(theta0), np.cos(theta0)])
-        dx0, dy0, dz0 = self.n([self.x0, self.y0, self.z0], idir)*idir
 
+        idir = np.array([np.cos(phi0)*np.sin(theta0), np.sin(phi0)*np.sin(theta0), np.cos(theta0)])
+        dx0, dy0, dz0 = self.n([x0, y0, z0], idir)*idir
         solver = 'RK45'
-        mstep = max(np.abs(sf), np.sqrt((self.xf - self.x0)**2+(self.yf-self.y0)**2 + (self.zf-self.z0)**2))/30
-        sol=solve_ivp(self.ode, [0, sf], [self.x0, self.y0, self.z0, dx0, dy0, dz0, 0], method=solver, events=self.hit_top, max_step=mstep) 
+        mstep = np.abs(sf)/30
+        sol=solve_ivp(self.ode, [0, sf], [x0, y0, z0, dx0, dy0, dz0, 0], method=solver, events=self.hit_top, max_step=mstep) 
         if len(sol.t_events[0]) == 0:
             sol.t = np.abs(sol.t)
             sol.y[-1,:] = np.abs(sol.y[-1,:])
@@ -216,7 +213,7 @@ class ray:
             yvals[-1,:] = np.abs(yvals[-1,:])
             return OptimizeResult(t=tvals, y=yvals)
 
-    def _rootfn(self, args):
+    def _rootfn_old(self, args):
         '''
         function for rootfinder, returns absolute distance of x, y, z components
         
@@ -224,15 +221,26 @@ class ray:
         '''
         sol = self.shoot_ray(args[0], args[1], args[2])
         return np.abs([sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf])
+    
+    def _rootfn(self, args):
+        '''
+        function for rootfinder, returns absolute distance of x, y, z components
+        
+        args: tuple of arclength, azimuth and zenith angles
+        '''
+        sol1 = self.shoot_ray(self.x0, self.y0, self.z0, args[0], args[1], args[2])
+        sol2 = self.shoot_ray(self.xf, self.yf, self.zf, args[3], args[4], args[5])
+        return np.abs([sol1.y[0, -1] - sol2.y[0,-1], sol1.y[1, -1] - sol2.y[1,-1], sol1.y[2, -1] - sol2.y[2, -1]])
 
-    def _distsq(self, args):
+    def _distsq(self, args1, args2):
         '''
         function for rootfinder, returns absolute distance (scalar)
         
         args: tuple of arclength, azimuth and zenith angles
         '''
-        sol = self.shoot_ray(args[0], args[1], args[2])
-        return (sol.y[0, -1] - self.xf)**2 +  (sol.y[1, -1] - self.yf)**2 + (sol.y[2, -1] - self.zf)**2
+        sol1 = self.shoot_ray(self.x0, self.y0, self.z0, *args1)
+        sol2 = self.shoot_ray(self.xf, self.yf, self.zf, *args2)
+        return (sol1.y[0, -1] - sol2.y[0,-1])**2 +  (sol1.y[1, -1] - sol2.y[1,-1])**2 + (sol1.y[2, -1] - sol2.y[2,-1])**2
     
     def _unitvect(self, v):
         '''returns unit vector in the direction of v'''
@@ -244,76 +252,18 @@ class ray:
         
         idx : array index
         '''
-        if True:
-            return [0,0,0], [0,0,0]
-
         q = self.ray.y[0:3, idx]
         p = self.ray.y[3:6, idx]
-        n = np.linalg.norm(p)
-        
-        det = lambda a : np.linalg.det(a)
-        
-        e = [0,0,0]
-        b = [0,0,0]
-
-        J = self.eps(q) - n**2*np.eye(3)
-        J[np.abs(J) < 1e-5] = 0
-        dJ = np.abs(det(J))
-            
-        print('\n-------------')
-
-        if dJ > 1e-10:
-            print('J is nonsingular')
-            e = self.adj(J) @ p
-            e = e / np.linalg.norm(e)
-            b = np.cross(p, e)
-            b = b / np.linalg.norm(b)
+        if np.abs(np.linalg.det(self.eps(q) - self.n(q, p)**2*np.eye(3))) > 1e-10:
+            return self._unitvect(self.adj((self.eps(q) - self.n(q, p)**2*np.eye(3))) @ p), self._unitvect(np.cross(p, q))
         else:
-            print('J is singular')
-            ns = null_space(J)
-            #nzc = np.nonzero(np.any(adjJ != 0, axis=0))[0][0]
-            dots = np.dot(ns.T, p/np.linalg.norm(p))
-            u = ns[:, np.argmin(dots)]
-            b = np.cross(p, u)
-            b = b / np.linalg.norm(b)
-            e = -np.linalg.inv(self.eps(q)) @ b
-            e = e / np.linalg.norm(e)
+            vals, vects = np.linalg.eig(self.eps(q))
+            vects = vects.T
+            dots = (vects @ self._unitvect(p))
+            b = np.cross(vects[:,np.argmin(dots)], p)
+            return -self._unitvect(np.cross(np.linalg.inv(self.eps(q))@p, b)), self._unitvect(b)
 
-            '''
-            testm = np.abs(self.adj(J))
-            testm = testm > 1e-10
-
-            bl = True
-            for row in testm:
-                for col in row:
-                    if col == False:
-                        bl = False
-            
-            adjJ = self.adj(J)
-            adjJ[np.abs(adjJ) < 1e-10] = 0
-            
-            print(J)
-            print(adjJ)
-            
-            if bl:
-                print('J is singular, adj(J) =/= 0')
-                nzc = np.nonzero(np.any(adjJ != 0, axis=0))[0][0]
-                e = adjJ[:,nzc].T
-                e = e / np.linalg.norm(e)
-            else:
-                print('J is singular, adj(J) == 0')
-                nzc = np.nonzero(np.any(J != 0, axis=0))[0][0]
-                e = J[:,nzc].T
-                e = e / np.linalg.norm(e)
-            '''
-        b = np.cross(p, e)
-        b = b / np.linalg.norm(b)
-
-        print(self.ntype, self.raytype, e, b)
-        print(np.dot(p, self.eps(q) @ e), np.dot(p, b))
-        return e, b
-
-    def _get_ray(self, sf, phi, theta, thetabound):
+    def _get_ray(self, sf0, phi0, theta0, sff, phif, thetaf):
         '''
         finds ray using rootfinding via the shooting method for BVPs, then computes ray attributes
 
@@ -321,41 +271,30 @@ class ray:
         phi : intial guess for azimuth angle
         theta : intial guess for zenith angle
         '''
-        def rootfn1(phifn):
-            sol = self.shoot_ray(sf, phifn, theta)
-            #return np.abs([sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf])
-            return (sol.y[0, -1] - self.xf)**2 +  (sol.y[1, -1] - self.yf)**2 + (sol.y[2, -1] - self.zf)**2
-
-        def rootfn2(x, *args):
-            sol = self.shoot_ray(x[0], args[0], x[1])
-            return np.abs([sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf])
-
         if self.ray.t == []:
             #minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-10, 'eps':1e-3, 'factor': 1, 'diag': None})
-            #minsol = least_squares(self._rootfn, [sf, phi, theta], method='trf', bounds=([-np.inf, 0, 0], [np.inf,  2*np.pi, thetabound]), xtol=1e-10, x_scale=[1000, 1e-8, 0.1])
-            #minphi = root(rootfn1, phi, method='lm')
-            
-            minsol = least_squares(self._rootfn, [sf, phi, theta], method='lm', xtol=1e-10, x_scale=[1000, 1e-8, 0.1], verbose=1)
+            minsol = least_squares(self._rootfn, [sf0, phi0, theta0, sff, phif, thetaf], method='trf', xtol=1e-10, x_scale=[1000, 1e-8, 0.1, 1000, 1e-8, 0.1])
             if minsol.cost > 1e-3:
-                #minsol = minimize(self._distsq, ((-np.inf, np.inf), (0, 2*np.pi), (0, thetabound)))
-                minsol = minimize(self._distsq, minsol.x, method='Nelder-Mead', options={'disp':True, 'maxiter':1000, 'xtol':1e-8, 'ftol':1e-8, 'adaptive':True})
+                minsol = minimize(self._distsq, minsol.x, method='Nelder-Mead', options={'disp':True, 'xatol':1e-12, 'maxiter':500, 'fatol':1e-8, 'adaptive':True})
                 #minsol = minimize(self._distsq, minsol.x, method='BFGS', options={'maxiter':1000, 'gtol':1e-8})
-            #print([sf, phi, theta], minsol.x)
             print(self.ntype, self.raytype, minsol.success, minsol.message)
+            sol1 = self.shoot_ray(self.x0, self.y0, self.z0, minsol.x[0], minsol.x[1], minsol.x[2])
+            sol2 = self.shoot_ray(self.xf, self.yf, self.zf, minsol.x[3], minsol.x[4], minsol.x[5])
+            times = np.hstack((sol1.y[-1,:], sol1.y[-1,-1] + sol2.y[-1,:]))
+            ysol = np.hstack((sol1.y, sol2.y[:,::-1]))
+            ysol[-1,:] = times
+            self.copy_ray(OptimizeResult(t = np.hstack((sol1.t, sol1.t[-1]+sol2.t)), y=ysol))
             
-            self.copy_ray(self.shoot_ray(*minsol.x))
-            
-            #self.copy_ray(self.shoot_ray(sf, phi, theta))
-
             return self.ray
         else:
             return self.ray
     
-    def get_ray(self, sg, phig, thetag, thetabound):
+    def get_ray(self, args0, argsf):
+        
         if self.ray.t == []:
-            #sg, phig, thetag = self.get_guess()            
-            self._get_ray(sg, phig, thetag, thetabound)
-            print(self.xf, self.yf, self.zf, self.ray.y[0, -1], self.ray.y[1,-1], self.ray.y[2,-1])
+            #sg, phig, thetag = self.get_guess()
+            self._get_ray(*args0, *argsf)
+            #print(self.xf, self.yf, self.zf, self.ray.y[0, -1], self.ray.y[1,-1], self.ray.y[2,-1])
             return self.ray
         else:
             return self.ray
@@ -387,20 +326,26 @@ class rays(ray):
     def set_guess(self):
         g = analyticraytracing.ray_tracing(np.array([self.x0, self.y0, self.z0]), np.array([self.xf, self.yf, self.zf]), medium.get_ice_model('ARAsim_southpole'), n_frequencies_integration = 1)
         g.find_solutions()
+        
         self.sg1, self.sg2 = g.get_path_length(0), g.get_path_length(1)
-                
+        
         lv1, lv2 = g.get_launch_vector(0), g.get_launch_vector(1)
         lv1, lv2 = lv1/np.linalg.norm(lv1), lv2/np.linalg.norm(lv2)
         
-        self.phig = np.arctan2((self.yf - self.y0), (self.xf-self.x0))
-        
-        self.thetag1, self.thetag2 = np.arccos(lv1[2]), np.arccos(lv2[2])
-    
+        rv1, rv2 = g.get_receive_vector(0), g.get_receive_vector(1)
+        rv1, rv2 = rv1/np.linalg.norm(rv1), rv2/np.linalg.norm(rv2)
+
+        self.phig0 = np.arctan2((self.yf - self.y0), (self.xf-self.x0))
+        self.phigf = self.phig0 + np.pi
+
+        self.thetag10, self.thetag20 = np.arccos(lv1[2]), np.arccos(lv2[2])
+        self.thetag1f, self.thetag2f = np.arccos(-rv1[2]), np.arccos(-rv2[2])
+
     def get_guess(self, raytype):
         if raytype == 1:
-            return (self.sg1, self.phig, self.thetag1, np.pi)
+            return (self.sg1/2, self.phig0, self.thetag10), (self.sg1/2, self.phigf, self.thetag1f)
         if raytype == 2:
-            return (self.sg2, self.phig, self.thetag2, self.thetag1)
+            return (self.sg2/2, self.phig0, self.thetag20), (self.sg2/2, self.phigf, self.thetag2f)
 
     def get_rays(self, par=True):
         if par == True:

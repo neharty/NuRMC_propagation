@@ -10,6 +10,9 @@ from scipy.constants import speed_of_light
 import snell_prop_fns as sf
 import time
 from ray_hamiltonian import rays
+from NuRadioMC.SignalProp import analyticraytracing
+from NuRadioMC.utilities import medium
+
 
 # calculate the contrast function
 
@@ -39,6 +42,8 @@ delta_n = 0.43
 z00 = 75.75757575757576
 ice = lambda zz: nd - delta_n*np.exp(zz/z00)
 
+print(cont(-2800)*ice(-2800))
+
 def eps(pos):
     z = pos[2]
     tmp = np.array([[cont(z), 0, 0],
@@ -48,8 +53,10 @@ def eps(pos):
 
 
 testdepths = np.linspace(-100, -1800, num=280)
-rmaxs = [2400, 3700, 3200, 3700]
-z0s = [-1000, -1000, -1400, -1400]
+#rmaxs = [2400, 3700, 3200, 3700]
+#z0s = [-1000, -1000, -1400, -1400]
+rmaxs = [3200]
+z0s = [-1400]
 zm = -200
 dr = 10
 dz = 10
@@ -68,7 +75,10 @@ for k in range(len(rmaxs)):
     for j in range(len(phiarr)):
         phi = phiarr[j]
 
-        rayz = rays(0, 0, z0, np.cos(phi)*rmax, np.sin(phi)*rmax, zm, eps)
+        startpos = (0,0,z0)
+        finishpos = (np.cos(phi)*rmax, np.sin(phi)*rmax, zm)
+
+        rayz = rays(*startpos, *finishpos, eps)
 
         tmptab[j, 0] = rayz.get_time(0,0)
         tmptab[j, 3] = rayz.get_time(1,0)
@@ -78,7 +88,12 @@ for k in range(len(rmaxs)):
 
         tmptab[j, 2] = rayz.get_time(0,0) - rayz.get_time(1,0)
         tmptab[j, 5] = rayz.get_time(0,1) - rayz.get_time(1,1)
-        ''' 
+        
+        g = analyticraytracing.ray_tracing(startpos, finishpos, medium.get_ice_model('ARAsim_southpole'), n_frequencies_integration = 1)
+        g.find_solutions()
+        nrmc1 = g.get_path(0, n_points=100)
+        nrmc2 = g.get_path(1, n_points=100)
+        
         r11 = rayz.get_ray(0,0)
         r12 = rayz.get_ray(0,1)
         r21 = rayz.get_ray(1,0)
@@ -88,15 +103,21 @@ for k in range(len(rmaxs)):
         plt.plot(np.sqrt(r12.y[0,:]**2 + r12.y[1,:]**2), r12.y[2,:], '--*', label = 'p2')
 
         plt.plot(np.sqrt(r21.y[0,:]**2 + r21.y[1,:]**2), r21.y[2,:], label = 's1')
-        plt.plot(np.sqrt(r22.y[0,:]**2 + r22.y[1,:]**2), r22.y[2,:], '--', label = 's2')
+        plt.plot(np.sqrt(r22.y[0,:]**2 + r22.y[1,:]**2), r22.y[2,:], label = 's2')
         
+        plt.plot(np.sqrt(nrmc1[:, 0]**2 + nrmc1[:, 1]**2), nrmc1[:,2], '--', label = 'a 1')
+        plt.plot(np.sqrt(nrmc2[:, 0]**2 + nrmc2[:, 1]**2), nrmc2[:,2], '--', label = 'a 2')
+
         plt.legend()
         plt.show()
         plt.clf()
-        '''
+        
         print('\n', phi)
         print(rayz.get_time(0,0), rayz.get_time(1,0), rayz.get_time(0,0) - rayz.get_time(1,0))
         print(rayz.get_time(0,1), rayz.get_time(1,1), rayz.get_time(0,1) - rayz.get_time(1,1))
+        print('\n')
+        print(rayz.get_initial_E_pol(0,0), rayz.get_initial_E_pol(1,0), rayz.get_final_E_pol(0,0), rayz.get_final_E_pol(1,0))
+        print(rayz.get_initial_E_pol(0,1), rayz.get_initial_E_pol(1,1), rayz.get_final_E_pol(0,1), rayz.get_final_E_pol(1,1))
         print('\n')
 
         tab = pd.DataFrame(data=tmptab, index=phiarr, columns=['p1 travel time [ns]', 's1 travel time [ns]', 'p-s delta t 1 [ns]', 'p2 travel time [ns]', 's2 travel time [ns]', 'p-s delta t 2 [ns]'])
