@@ -115,13 +115,12 @@ class ray:
         
         q = u[:3]
         p = u[3:-1]
-        self._dsign = self.H(q, p)
         phat = p/np.linalg.norm(p, 2)
-        qdot = self._dsign*self.DpH(q, p)
+        qdot = self.DpH(q, p)
         
         qdn = np.linalg.norm(qdot, 2)
         
-        qdot = qdot/qdn
+        qdot = self._dsign*qdot/qdn
         pdot = -self._dsign*self.DqH(q, p)/qdn
         
         if np.dot(phat, qdot) > 1:
@@ -147,14 +146,20 @@ class ray:
         return np.linalg.det(self.HMat(q, p))
 
     def DqH(self, q, p):
-        h = 1e-5
+        q = np.array(q)
+        p = np.array(p)
+        macheps = 7./3 - 4./3 -1
+        h = (macheps)**(2/3)*np.max(np.abs(q))
         DxH = (self.H([q[0] + h, q[1], q[2]], p) - self.H([q[0] - h, q[1], q[2]], p))/(2*h)
         DyH = (self.H([q[0], q[1] + h, q[2]], p) - self.H([q[0], q[1]- h, q[2]], p))/(2*h)
         DzH = (self.H([q[0], q[1], q[2] + h], p) - self.H([q[0], q[1], q[2] - h], p))/(2*h)
         return np.array([DxH, DyH, DzH])
 
     def DpH(self, q, p):
-        h = 1e-5
+        q = np.array(q)
+        p = np.array(p)
+        macheps = 7./3 - 4./3 -1
+        h = (macheps)**(2/3)*np.max(np.abs(p))
         Dp1H = (self.H(q, [p[0] + h, p[1], p[2]]) - self.H(q, [p[0] - h, p[1], p[2]]))/(2*h)
         Dp2H = (self.H(q, [p[0], p[1] + h, p[2]]) - self.H(q, [p[0], p[1] - h, p[2]]))/(2*h)
         Dp3H = (self.H(q, [p[0], p[1], p[2] + h]) - self.H(q, [p[0], p[1], p[2] - h]))/(2*h)
@@ -198,6 +203,11 @@ class ray:
         
         idir = np.array([np.cos(phi0)*np.sin(theta0), np.sin(phi0)*np.sin(theta0), np.cos(theta0)])
         dx0, dy0, dz0 = self.n([self.x0, self.y0, self.z0], idir)*idir
+        #dot = np.dot(idir, self._unitvect(self.DpH([self.x0, self.y0, self.z0], [dx0, dy0, dz0])))
+        if 1 == np.sign(self.DpH([self.x0, self.y0, self.z0], [dx0, dy0, dz0])[-1]):
+            self._dsign = 1
+        else:
+            self._dsign = -1
 
         solver = 'RK45'
         mstep = max(np.abs(sf), np.sqrt((self.xf - self.x0)**2+(self.yf-self.y0)**2 + (self.zf-self.z0)**2))/30
@@ -321,25 +331,19 @@ class ray:
         phi : intial guess for azimuth angle
         theta : intial guess for zenith angle
         '''
-        def rootfn1(phifn):
-            sol = self.shoot_ray(sf, phifn, theta)
-            #return np.abs([sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf])
-            return (sol.y[0, -1] - self.xf)**2 +  (sol.y[1, -1] - self.yf)**2 + (sol.y[2, -1] - self.zf)**2
-
-        def rootfn2(x, *args):
-            sol = self.shoot_ray(x[0], args[0], x[1])
-            return np.abs([sol.y[0, -1] - self.xf, sol.y[1, -1] - self.yf, sol.y[2, -1] - self.zf])
 
         if self.ray.t == []:
             #minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-10, 'eps':1e-3, 'factor': 1, 'diag': None})
             #minsol = least_squares(self._rootfn, [sf, phi, theta], method='trf', bounds=([-np.inf, 0, 0], [np.inf,  2*np.pi, thetabound]), xtol=1e-10, x_scale=[1000, 1e-8, 0.1])
             #minphi = root(rootfn1, phi, method='lm')
             
-            minsol = least_squares(self._rootfn, [sf, phi, theta], method='lm', xtol=1e-10, x_scale=[1000, 1e-8, 0.1], verbose=1)
+            minsol = least_squares(self._rootfn, [sf, phi, theta], method='lm', xtol=1e-10, x_scale=[1000, 1e-8, 1e-2], verbose=1)
             if minsol.cost > 1e-3:
-                #minsol = minimize(self._distsq, ((-np.inf, np.inf), (0, 2*np.pi), (0, thetabound)))
+                #minsol = minimize(self._distsq, minsol.x, method='Powell', options={'disp':True, 'maxiter':1000, 'xtol':1e-6, 'ftol':1e-6})
                 minsol = minimize(self._distsq, minsol.x, method='Nelder-Mead', options={'disp':True, 'maxiter':1000, 'xtol':1e-8, 'ftol':1e-8, 'adaptive':True})
-                #minsol = minimize(self._distsq, minsol.x, method='BFGS', options={'maxiter':1000, 'gtol':1e-8})
+                #minsol = minimize(self._distsq, minsol.x, method='BFGS', options={'maxiter':1000, 'gtol':1e-10})
+                #minsol = root(self._rootfn, minsol.x, options={'xtol':1e-10, 'factor':10, 'diag':[1000, 1e-8, 0.01]})
+                #minsol = root(self._rootfn, minsol.x, method='broyden1', 
             #print([sf, phi, theta], minsol.x)
             print(self.ntype, self.raytype, minsol.success, minsol.message)
             
