@@ -130,7 +130,7 @@ class ray:
         else:
             cosang = np.dot(phat, qdot)
 
-        return np.array([qdot[0], qdot[1], qdot[2], pdot[0], pdot[1], pdot[2], cosang*np.linalg.norm(p)])
+        return np.array([qdot[0], qdot[1], qdot[2], pdot[0], pdot[1], pdot[2], np.dot(p, qdot)])
    
     def HMat(self, q, p):
         D2 = np.array([[-p[1]**2 - p[2]**2, p[0]*p[1], p[0]*p[2]],
@@ -331,35 +331,68 @@ class ray:
         phi : intial guess for azimuth angle
         theta : intial guess for zenith angle
         '''
+        
+        def distsqarclen(s):
+            return self._distsq((s, phi, theta))
 
         if self.ray.t == []:
             #minsol = root(self._rootfn, [sf, phi, theta], options={'xtol': 1e-10, 'eps':1e-3, 'factor': 1, 'diag': None})
             #minsol = least_squares(self._rootfn, [sf, phi, theta], method='trf', bounds=([-np.inf, 0, 0], [np.inf,  2*np.pi, thetabound]), xtol=1e-10, x_scale=[1000, 1e-8, 0.1])
             #minphi = root(rootfn1, phi, method='lm')
-            
-            minsol = least_squares(self._rootfn, [sf, phi, theta], method='lm', xtol=1e-10, x_scale=[1000, 1e-8, 1e-2], verbose=1)
+            arclen = root(distsqarclen, sf, method='lm', options={'ftol':1e-10, 'xtol':1e-8, 'maxiter':500, 'eps':1e-8})
+            #self.copy_ray(self.shoot_ray(arclen.x, phi, theta))
+            minsol = least_squares(self._rootfn, [arclen.x[0], phi, theta], method='lm', ftol=1e-10, xtol=1e-10, x_scale=[1000, 1e-8, 1e-2], verbose=1)
+            ms = minsol.x
             if minsol.cost > 1e-3:
                 #minsol = minimize(self._distsq, minsol.x, method='Powell', options={'disp':True, 'maxiter':1000, 'xtol':1e-6, 'ftol':1e-6})
-                minsol = minimize(self._distsq, minsol.x, method='Nelder-Mead', options={'disp':True, 'maxiter':1000, 'xtol':1e-8, 'ftol':1e-8, 'adaptive':True})
-                #minsol = minimize(self._distsq, minsol.x, method='BFGS', options={'maxiter':1000, 'gtol':1e-10})
+                #minsol = minimize(self._distsq, minsol.x, method='Nelder-Mead', options={'disp':True, 'maxiter':1000, 'xtol':1e-6, 'ftol':1e-6, 'adaptive':True})
+                #minsol = minimize(self._distsq, minsol.x, method='BFGS', options={'maxiter':1000, 'gtol':1e-10, 'norm':2})
                 #minsol = root(self._rootfn, minsol.x, options={'xtol':1e-10, 'factor':10, 'diag':[1000, 1e-8, 0.01]})
-                #minsol = root(self._rootfn, minsol.x, method='broyden1', 
-            #print([sf, phi, theta], minsol.x)
-            print(self.ntype, self.raytype, minsol.success, minsol.message)
+                #minsol = root(self._rootfn, minsol.x, method='lm', options={'ftol':1e-12, 'xtol':1e-12, 'maxiter':500, 'eps':1e-8, 'diag':(minsol.x[0], 1e-10, minsol.x[2])})
+                ms = self.secant(self._distsq, ms)
+                #print([sf, phi, theta], minsol.x)
+            #print(self.ntype, self.raytype, minsol.success, minsol.message)
             
-            self.copy_ray(self.shoot_ray(*minsol.x))
-            
+            self.copy_ray(self.shoot_ray(*ms))
             #self.copy_ray(self.shoot_ray(sf, phi, theta))
 
             return self.ray
         else:
             return self.ray
-    
+    def secant(self, f, x0, ftol=1e-6, maxiter=200):
+        
+        macheps = 7./3 - 4./3 - 1
+        h = np.sqrt(macheps)
+        h = 1e-4
+        def jac(x):
+            return (f(x + h) - f(x))/h
+        x0 = np.array(x0) 
+        xk = x0
+        fk = f(x0)
+        xk1 = xk+[x0[0] + np.sqrt(fk), 0, h]
+        fk1 = f(xk1)
+        xk11 = xk1+[xk1[0] + np.sqrt(fk1), 0, h]
+        fk = f(x0)
+        fk1 = f(xk1)
+
+        iternum = 0
+        while np.abs(f(xk1)) > ftol and iternum < maxiter:
+            xtmp = xk11
+            xk11 = xk1-(fk1/(fk1-fk))*(xk1 - xk)
+            xk = xk1
+            xk1 = xtmp
+            fk = f(xk)
+            fk1 = f(xk1)
+            iternum = iternum + 1
+        print(fk1, iternum)
+        return xk11
+            
+
     def get_ray(self, sg, phig, thetag, thetabound):
         if self.ray.t == []:
             #sg, phig, thetag = self.get_guess()            
             self._get_ray(sg, phig, thetag, thetabound)
-            print(self.xf, self.yf, self.zf, self.ray.y[0, -1], self.ray.y[1,-1], self.ray.y[2,-1])
+            print(self.ntype, self.raytype, self.xf, self.yf, self.zf, self.ray.y[0, -1], self.ray.y[1,-1], self.ray.y[2,-1])
             return self.ray
         else:
             return self.ray
